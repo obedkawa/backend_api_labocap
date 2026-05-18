@@ -1,0 +1,146 @@
+package com.labo.anapath.finance;
+
+import com.labo.anapath.common.audit.AuditableEntity;
+import com.labo.anapath.contract.Contrat;
+import com.labo.anapath.patient.Patient;
+import com.labo.anapath.testorder.TestOrder;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Entité représentant une facture émise pour un bon d'examen (TestOrder).
+ *
+ * <p>Le code facture suit le format {@code FA260001} (préfixe «FA» + année sur 2 chiffres
+ * + numéro séquentiel sur 4 chiffres).</p>
+ *
+ * <p>Une facture peut être liée à un {@link com.labo.anapath.contract.Contrat} lorsque
+ * le patient est couvert par un accord tarifaire (assurance, hôpital partenaire).
+ * Dans ce cas, les prix contractuels s'appliquent.</p>
+ *
+ * <p>La suppression est logique : le champ {@code deleted_at} est renseigné
+ * sans effacer la ligne en base.</p>
+ */
+@Entity
+@Table(name = "invoices")
+@SQLDelete(sql = "UPDATE invoices SET deleted_at = NOW() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
+@Getter
+@Setter
+@NoArgsConstructor
+public class Invoice extends AuditableEntity {
+
+    /** Code unique de la facture (ex. FA260001). Null avant génération du code définitif. */
+    @Column(name = "code", length = 50)
+    private String code;
+
+    /** Bon d'examen associé à cette facture (relation 1-1). */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "test_order_id")
+    private TestOrder testOrder;
+
+    /** Patient facturé. Null pour les factures groupées de contrat (invoice_unique=true). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "patient_id")
+    private Patient patient;
+
+    /**
+     * Contrat tarifaire éventuellement applicable.
+     * Null si le patient est un particulier sans contrat.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contrat_id")
+    private Contrat contrat;
+
+    /** Nom du client tel qu'il doit apparaître sur la facture imprimée. */
+    @Column(name = "client_name", length = 100)
+    private String clientName;
+
+    /** Adresse du client pour la facture imprimée. */
+    @Column(name = "client_address", columnDefinition = "TEXT")
+    private String clientAddress;
+
+    /** Montant brut avant remise (somme des prix unitaires × quantités). */
+    @Column(name = "subtotal")
+    private Double subtotal;
+
+    /** Remise globale appliquée sur le sous-total. */
+    @Column(name = "discount")
+    private Double discount;
+
+    /** Montant total dû après remise. Valeur par défaut : zéro avant calcul. */
+    @Column(name = "total", nullable = false, precision = 10, scale = 2)
+    private BigDecimal total = BigDecimal.ZERO;
+
+    /** Indique si la facture est intégralement réglée (dénormalisation pour requêtes rapides). */
+    @Column(name = "paid", nullable = false)
+    private Boolean paid = false;
+
+    /** Statut de la facture dans son cycle de vie. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private InvoiceStatus status = InvoiceStatus.PENDING;
+
+    /** Date d'échéance de paiement (nullable : paiement immédiat si absent). */
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
+    /** Lignes de détail de la facture (analyses facturées). */
+    @OneToMany(mappedBy = "invoice", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<InvoiceDetail> details = new ArrayList<>();
+
+    /** Code MECeF attribué après normalisation fiscale (null avant normalisation). */
+    @Column(name = "code_mecef", length = 100)
+    private String codeMecef;
+
+    /** Compteurs MECeF (JSON sérialisé). */
+    @Column(name = "counters", columnDefinition = "TEXT")
+    private String counters;
+
+    /** Date de génération du code MECeF (format string pour compatibilité Laravel). */
+    @Column(name = "date_generate", length = 50)
+    private String dateGenerate;
+
+    /** Numéro d'identification MECeF. */
+    @Column(name = "nim", length = 100)
+    private String nim;
+
+    /** QR Code MECeF (base64 ou URL). */
+    @Column(name = "qrcode", columnDefinition = "TEXT")
+    private String qrcode;
+
+    /** Mode de paiement en clair (ex. "ESPECES", "MOBILEMONEY"). Null tant que non payée. */
+    @Column(name = "payment", length = 30)
+    private String payment;
+
+    /** Type de facture : 0 = vente (normale), 1 = avoir (remboursement). */
+    @Column(name = "status_invoice", nullable = false)
+    private int statusInvoice = 0;
+
+    /** UUID de la facture de vente originale pour les avoirs (reference). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reference")
+    private Invoice reference;
+
+    /** Code de normalisation manuelle (saisi par l'agent quand MECeF est désactivé). */
+    @Column(name = "code_normalise", length = 100)
+    private String codeNormalise;
+}

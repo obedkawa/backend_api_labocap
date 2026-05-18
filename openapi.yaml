@@ -1,0 +1,4540 @@
+openapi: 3.0.3
+info:
+  title: LIS Labo-Anapath API
+  description: API REST de gestion de laboratoire d'anatomopathologie
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Développement local
+  - url: https://api.labo-anapath.com/api/v1
+    description: Production
+
+tags:
+  - name: Auth
+  - name: Branches
+  - name: Users
+  - name: Roles
+  - name: Patients
+  - name: Doctors
+  - name: Hospitals
+  - name: Category Tests
+  - name: Unit Measurements
+  - name: Type Orders
+  - name: Lab Tests
+  - name: Test Orders
+  - name: Reports
+  - name: Title Reports
+  - name: Pathology Macros
+  - name: Tags
+  - name: Consultations
+  - name: Type Consultations
+  - name: Contracts
+  - name: Invoices
+  - name: Payments
+  - name: Cashboxes
+  - name: Refund Requests
+  - name: Employees
+  - name: Articles
+  - name: Suppliers
+  - name: Movements
+  - name: Settings
+  - name: Report Templates
+  - name: Tickets
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ── AUTH ────────────────────────────────────────────────────────────────────
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Connexion
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginApiResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rafraîchir le token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Nouveau token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Déconnexion
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── BRANCHES ────────────────────────────────────────────────────────────────
+
+  /branches:
+    get:
+      tags: [Branches]
+      summary: Liste des agences
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchPageApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Branches]
+      summary: Créer une agence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchApiResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /branches/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Branches]
+      summary: Détail d'une agence
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Branches]
+      summary: Modifier une agence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Branches]
+      summary: Supprimer une agence
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── USERS ───────────────────────────────────────────────────────────────────
+
+  /users:
+    get:
+      tags: [Users]
+      summary: Liste des utilisateurs
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPageApiResponse'
+    post:
+      tags: [Users]
+      summary: Créer un utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserApiResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Users]
+      summary: Détail d'un utilisateur
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Users]
+      summary: Modifier un utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Users]
+      summary: Supprimer un utilisateur
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  /users/{id}/password:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    patch:
+      tags: [Users]
+      summary: Changer le mot de passe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasswordRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  # ── ROLES ───────────────────────────────────────────────────────────────────
+
+  /roles:
+    get:
+      tags: [Roles]
+      summary: Liste des rôles
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RolePageApiResponse'
+    post:
+      tags: [Roles]
+      summary: Créer un rôle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleApiResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /roles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Roles]
+      summary: Détail d'un rôle
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Roles]
+      summary: Modifier un rôle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleApiResponse'
+    delete:
+      tags: [Roles]
+      summary: Supprimer un rôle
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  /roles/{id}/permissions:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      tags: [Roles]
+      summary: Assigner des permissions à un rôle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignPermissionsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleApiResponse'
+
+  # ── PATIENTS ─────────────────────────────────────────────────────────────────
+
+  /patients:
+    get:
+      tags: [Patients]
+      summary: Liste des patients
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+        - $ref: '#/components/parameters/sortBy'
+        - $ref: '#/components/parameters/sortDir'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientPageApiResponse'
+    post:
+      tags: [Patients]
+      summary: Créer un patient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientApiResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /patients/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Patients]
+      summary: Détail d'un patient
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Patients]
+      summary: Modifier un patient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientApiResponse'
+    delete:
+      tags: [Patients]
+      summary: Supprimer un patient (soft delete)
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── DOCTORS ──────────────────────────────────────────────────────────────────
+
+  /doctors:
+    get:
+      tags: [Doctors]
+      summary: Liste des médecins
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorPageApiResponse'
+    post:
+      tags: [Doctors]
+      summary: Créer un médecin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorApiResponse'
+
+  /doctors/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Doctors]
+      summary: Détail d'un médecin
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Doctors]
+      summary: Modifier un médecin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorApiResponse'
+    delete:
+      tags: [Doctors]
+      summary: Supprimer un médecin
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── HOSPITALS ────────────────────────────────────────────────────────────────
+
+  /hospitals:
+    get:
+      tags: [Hospitals]
+      summary: Liste des hôpitaux
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HospitalPageApiResponse'
+    post:
+      tags: [Hospitals]
+      summary: Créer un hôpital
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HospitalRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HospitalApiResponse'
+
+  /hospitals/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Hospitals]
+      summary: Détail d'un hôpital
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HospitalApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Hospitals]
+      summary: Modifier un hôpital
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HospitalRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HospitalApiResponse'
+    delete:
+      tags: [Hospitals]
+      summary: Supprimer un hôpital
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── CATEGORY TESTS ───────────────────────────────────────────────────────────
+
+  /category-tests:
+    get:
+      tags: [Category Tests]
+      summary: Liste des catégories d'analyses
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryTestPageApiResponse'
+    post:
+      tags: [Category Tests]
+      summary: Créer une catégorie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryTestApiResponse'
+
+  /category-tests/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Category Tests]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryTestApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Category Tests]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryTestApiResponse'
+    delete:
+      tags: [Category Tests]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── UNIT MEASUREMENTS ────────────────────────────────────────────────────────
+
+  /unit-measurements:
+    get:
+      tags: [Unit Measurements]
+      summary: Liste des unités de mesure
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitMeasurementPageApiResponse'
+    post:
+      tags: [Unit Measurements]
+      summary: Créer une unité
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitMeasurementRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitMeasurementApiResponse'
+
+  /unit-measurements/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Unit Measurements]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitMeasurementApiResponse'
+    put:
+      tags: [Unit Measurements]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitMeasurementRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnitMeasurementApiResponse'
+    delete:
+      tags: [Unit Measurements]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── TYPE ORDERS ──────────────────────────────────────────────────────────────
+
+  /type-orders:
+    get:
+      tags: [Type Orders]
+      summary: Liste des types de bons
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeOrderPageApiResponse'
+    post:
+      tags: [Type Orders]
+      summary: Créer un type de bon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeOrderApiResponse'
+
+  /type-orders/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Type Orders]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeOrderApiResponse'
+    put:
+      tags: [Type Orders]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeOrderApiResponse'
+    delete:
+      tags: [Type Orders]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── LAB TESTS ────────────────────────────────────────────────────────────────
+
+  /lab-tests:
+    get:
+      tags: [Lab Tests]
+      summary: Catalogue des analyses
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+        - name: categoryTestId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabTestPageApiResponse'
+    post:
+      tags: [Lab Tests]
+      summary: Créer une analyse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabTestRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabTestApiResponse'
+
+  /lab-tests/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Lab Tests]
+      summary: Détail d'une analyse
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabTestApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Lab Tests]
+      summary: Modifier une analyse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabTestRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabTestApiResponse'
+    delete:
+      tags: [Lab Tests]
+      summary: Supprimer une analyse
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── TEST ORDERS ──────────────────────────────────────────────────────────────
+
+  /test-orders:
+    get:
+      tags: [Test Orders]
+      summary: Liste des bons d'examen
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TestOrderStatus'
+        - name: doctorId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: hospitalId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestOrderPageApiResponse'
+    post:
+      tags: [Test Orders]
+      summary: Créer un bon d'examen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestOrderRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestOrderApiResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /test-orders/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Test Orders]
+      summary: Détail d'un bon d'examen
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestOrderApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Test Orders]
+      summary: Modifier un bon d'examen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestOrderRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestOrderApiResponse'
+    delete:
+      tags: [Test Orders]
+      summary: Annuler un bon d'examen
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  /test-orders/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    patch:
+      tags: [Test Orders]
+      summary: Changer le statut
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStatusRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestOrderApiResponse'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /test-orders/{id}/deliver:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      tags: [Test Orders]
+      summary: Marquer comme livré
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                receiverName:
+                  type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  # ── REPORTS ──────────────────────────────────────────────────────────────────
+
+  /reports:
+    get:
+      tags: [Reports]
+      summary: Liste des comptes rendus
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ReportStatus'
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportPageApiResponse'
+    post:
+      tags: [Reports]
+      summary: Créer un compte rendu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportApiResponse'
+
+  /reports/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Reports]
+      summary: Détail d'un compte rendu
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Reports]
+      summary: Modifier un compte rendu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportApiResponse'
+    delete:
+      tags: [Reports]
+      summary: Supprimer un compte rendu
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  /reports/{id}/validate:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      tags: [Reports]
+      summary: Valider un compte rendu
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportApiResponse'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /reports/{id}/deliver:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      tags: [Reports]
+      summary: Marquer comme livré
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                receiverName:
+                  type: string
+                receiverSignature:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportApiResponse'
+
+  # ── TITLE REPORTS ────────────────────────────────────────────────────────────
+
+  /title-reports:
+    get:
+      tags: [Title Reports]
+      summary: Liste des titres de comptes rendus
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TitleReportPageApiResponse'
+    post:
+      tags: [Title Reports]
+      summary: Créer un titre
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TitleReportApiResponse'
+
+  /title-reports/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Title Reports]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TitleReportApiResponse'
+    put:
+      tags: [Title Reports]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TitleReportApiResponse'
+    delete:
+      tags: [Title Reports]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── PATHOLOGY MACROS ─────────────────────────────────────────────────────────
+
+  /pathology-macros:
+    get:
+      tags: [Pathology Macros]
+      summary: Liste des macros anapath
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathologyMacroPageApiResponse'
+    post:
+      tags: [Pathology Macros]
+      summary: Créer une macro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathologyMacroRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathologyMacroApiResponse'
+
+  /pathology-macros/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Pathology Macros]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathologyMacroApiResponse'
+    put:
+      tags: [Pathology Macros]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathologyMacroRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathologyMacroApiResponse'
+    delete:
+      tags: [Pathology Macros]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── TAGS ─────────────────────────────────────────────────────────────────────
+
+  /tags:
+    get:
+      tags: [Tags]
+      summary: Liste des tags
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagPageApiResponse'
+    post:
+      tags: [Tags]
+      summary: Créer un tag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagApiResponse'
+
+  /tags/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Tags]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagApiResponse'
+    put:
+      tags: [Tags]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagApiResponse'
+    delete:
+      tags: [Tags]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── CONSULTATIONS ────────────────────────────────────────────────────────────
+
+  /consultations:
+    get:
+      tags: [Consultations]
+      summary: Liste des consultations
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - name: patientId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationPageApiResponse'
+    post:
+      tags: [Consultations]
+      summary: Créer une consultation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultationRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationApiResponse'
+
+  /consultations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Consultations]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationApiResponse'
+    put:
+      tags: [Consultations]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultationRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationApiResponse'
+    delete:
+      tags: [Consultations]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── TYPE CONSULTATIONS ───────────────────────────────────────────────────────
+
+  /type-consultations:
+    get:
+      tags: [Type Consultations]
+      summary: Types de consultation
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeConsultationPageApiResponse'
+    post:
+      tags: [Type Consultations]
+      summary: Créer un type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeConsultationApiResponse'
+
+  /type-consultations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Type Consultations]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeConsultationApiResponse'
+    put:
+      tags: [Type Consultations]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TypeConsultationApiResponse'
+    delete:
+      tags: [Type Consultations]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── CONTRACTS ────────────────────────────────────────────────────────────────
+
+  /contracts:
+    get:
+      tags: [Contracts]
+      summary: Liste des contrats
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - name: hospitalId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratPageApiResponse'
+    post:
+      tags: [Contracts]
+      summary: Créer un contrat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContratRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratApiResponse'
+
+  /contracts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Contracts]
+      summary: Détail d'un contrat
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratApiResponse'
+    put:
+      tags: [Contracts]
+      summary: Modifier un contrat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContratRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContratApiResponse'
+    delete:
+      tags: [Contracts]
+      summary: Supprimer un contrat
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── INVOICES ─────────────────────────────────────────────────────────────────
+
+  /invoices:
+    get:
+      tags: [Invoices]
+      summary: Liste des factures
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/InvoiceStatus'
+        - name: patientId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoicePageApiResponse'
+    post:
+      tags: [Invoices]
+      summary: Créer une facture
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceApiResponse'
+
+  /invoices/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Invoices]
+      summary: Détail d'une facture
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceApiResponse'
+    put:
+      tags: [Invoices]
+      summary: Modifier une facture
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceApiResponse'
+    delete:
+      tags: [Invoices]
+      summary: Annuler une facture
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── PAYMENTS ─────────────────────────────────────────────────────────────────
+
+  /payments:
+    get:
+      tags: [Payments]
+      summary: Liste des paiements
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - name: invoiceId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentPageApiResponse'
+    post:
+      tags: [Payments]
+      summary: Enregistrer un paiement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '201':
+          description: Enregistré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentApiResponse'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  /payments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Payments]
+      summary: Détail d'un paiement
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentApiResponse'
+    delete:
+      tags: [Payments]
+      summary: Annuler un paiement
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── CASHBOXES ────────────────────────────────────────────────────────────────
+
+  /cashboxes:
+    get:
+      tags: [Cashboxes]
+      summary: Liste des caisses
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashboxPageApiResponse'
+    post:
+      tags: [Cashboxes]
+      summary: Créer une caisse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashboxApiResponse'
+
+  /cashboxes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Cashboxes]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashboxApiResponse'
+    put:
+      tags: [Cashboxes]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimpleNameRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashboxApiResponse'
+    delete:
+      tags: [Cashboxes]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── REFUND REQUESTS ──────────────────────────────────────────────────────────
+
+  /refund-requests:
+    get:
+      tags: [Refund Requests]
+      summary: Liste des demandes de remboursement
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundPageApiResponse'
+    post:
+      tags: [Refund Requests]
+      summary: Créer une demande de remboursement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundApiResponse'
+
+  /refund-requests/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Refund Requests]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundApiResponse'
+
+  /refund-requests/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    put:
+      tags: [Refund Requests]
+      summary: Mettre à jour le statut (APPROVED / REJECTED)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStatusRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundApiResponse'
+
+  # ── EMPLOYEES ────────────────────────────────────────────────────────────────
+
+  /employees:
+    get:
+      tags: [Employees]
+      summary: Liste des employés
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeePageApiResponse'
+    post:
+      tags: [Employees]
+      summary: Créer un employé
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeApiResponse'
+
+  /employees/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Employees]
+      summary: Détail d'un employé
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeApiResponse'
+    put:
+      tags: [Employees]
+      summary: Modifier un employé
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeApiResponse'
+    delete:
+      tags: [Employees]
+      summary: Supprimer un employé
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  /employees/{employeeId}/contrats:
+    parameters:
+      - name: employeeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Employees]
+      summary: Contrats RH d'un employé
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeContratListApiResponse'
+    post:
+      tags: [Employees]
+      summary: Ajouter un contrat RH
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeContratRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeContratApiResponse'
+
+  /employees/{employeeId}/contrats/{id}:
+    parameters:
+      - name: employeeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/id'
+    put:
+      tags: [Employees]
+      summary: Modifier un contrat RH
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeContratRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeContratApiResponse'
+    delete:
+      tags: [Employees]
+      summary: Supprimer un contrat RH
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  /employees/{employeeId}/payrolls:
+    parameters:
+      - name: employeeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Employees]
+      summary: Bulletins de paie d'un employé
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeePayrollListApiResponse'
+    post:
+      tags: [Employees]
+      summary: Créer un bulletin de paie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeePayrollRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeePayrollApiResponse'
+
+  /employees/{employeeId}/timeoffs:
+    parameters:
+      - name: employeeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Employees]
+      summary: Congés d'un employé
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeTimeoffListApiResponse'
+    post:
+      tags: [Employees]
+      summary: Créer une demande de congé
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeTimeoffRequest'
+      responses:
+        '201':
+          description: Créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeTimeoffApiResponse'
+
+  /employees/{employeeId}/timeoffs/{id}/status:
+    parameters:
+      - name: employeeId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/id'
+    put:
+      tags: [Employees]
+      summary: Approuver ou rejeter un congé
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStatusRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeTimeoffApiResponse'
+
+  # ── ARTICLES ─────────────────────────────────────────────────────────────────
+
+  /articles:
+    get:
+      tags: [Articles]
+      summary: Liste des articles
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticlePageApiResponse'
+    post:
+      tags: [Articles]
+      summary: Créer un article
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleApiResponse'
+
+  /articles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Articles]
+      summary: Détail d'un article
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleApiResponse'
+    put:
+      tags: [Articles]
+      summary: Modifier un article
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleApiResponse'
+    delete:
+      tags: [Articles]
+      summary: Supprimer un article
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── SUPPLIERS ────────────────────────────────────────────────────────────────
+
+  /suppliers:
+    get:
+      tags: [Suppliers]
+      summary: Liste des fournisseurs
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierPageApiResponse'
+    post:
+      tags: [Suppliers]
+      summary: Créer un fournisseur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierApiResponse'
+
+  /suppliers/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Suppliers]
+      summary: Détail d'un fournisseur
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierApiResponse'
+    put:
+      tags: [Suppliers]
+      summary: Modifier un fournisseur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierApiResponse'
+    delete:
+      tags: [Suppliers]
+      summary: Supprimer un fournisseur
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── MOVEMENTS ────────────────────────────────────────────────────────────────
+
+  /movements:
+    get:
+      tags: [Movements]
+      summary: Historique des mouvements de stock
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - name: articleId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/MovementType'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementPageApiResponse'
+    post:
+      tags: [Movements]
+      summary: Enregistrer un mouvement de stock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovementRequest'
+      responses:
+        '201':
+          description: Enregistré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementApiResponse'
+        '422':
+          $ref: '#/components/responses/BusinessError'
+
+  # ── SETTINGS ─────────────────────────────────────────────────────────────────
+
+  /settings:
+    get:
+      tags: [Settings]
+      summary: Liste des paramètres
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingListApiResponse'
+    post:
+      tags: [Settings]
+      summary: Créer/mettre à jour un paramètre
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingApiResponse'
+
+  /settings/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Settings]
+      summary: Détail d'un paramètre
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingApiResponse'
+    delete:
+      tags: [Settings]
+      summary: Supprimer un paramètre
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── REPORT TEMPLATES ─────────────────────────────────────────────────────────
+
+  /report-templates:
+    get:
+      tags: [Report Templates]
+      summary: Liste des modèles de rapport
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportTemplateListApiResponse'
+    post:
+      tags: [Report Templates]
+      summary: Créer un modèle de rapport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportTemplateRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportTemplateApiResponse'
+
+  /report-templates/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Report Templates]
+      summary: Détail
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportTemplateApiResponse'
+    put:
+      tags: [Report Templates]
+      summary: Modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportTemplateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportTemplateApiResponse'
+    delete:
+      tags: [Report Templates]
+      summary: Supprimer
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  # ── TICKETS ──────────────────────────────────────────────────────────────────
+
+  /tickets:
+    get:
+      tags: [Tickets]
+      summary: Liste des tickets de support
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TicketStatus'
+        - name: priority
+          in: query
+          schema:
+            $ref: '#/components/schemas/TicketPriority'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketPageApiResponse'
+    post:
+      tags: [Tickets]
+      summary: Créer un ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketRequest'
+      responses:
+        '201':
+          description: Créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketApiResponse'
+
+  /tickets/{id}:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags: [Tickets]
+      summary: Détail d'un ticket
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketApiResponse'
+    put:
+      tags: [Tickets]
+      summary: Modifier un ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketApiResponse'
+    delete:
+      tags: [Tickets]
+      summary: Supprimer un ticket
+      responses:
+        '200':
+          $ref: '#/components/responses/EmptySuccess'
+
+  /tickets/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/id'
+    patch:
+      tags: [Tickets]
+      summary: Changer le statut d'un ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStatusRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketApiResponse'
+
+# ════════════════════════════════════════════════════════════════════════════════
+# COMPONENTS
+# ════════════════════════════════════════════════════════════════════════════════
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  # ── REUSABLE PARAMETERS ──────────────────────────────────────────────────────
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+    size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+    search:
+      name: search
+      in: query
+      schema:
+        type: string
+    sortBy:
+      name: sortBy
+      in: query
+      schema:
+        type: string
+        default: createdAt
+    sortDir:
+      name: sortDir
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+
+  # ── REUSABLE RESPONSES ───────────────────────────────────────────────────────
+
+  responses:
+    EmptySuccess:
+      description: Opération réussie
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmptyApiResponse'
+    NotFound:
+      description: Ressource introuvable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorApiResponse'
+    Unauthorized:
+      description: Non authentifié ou token invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorApiResponse'
+    Forbidden:
+      description: Permission insuffisante
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorApiResponse'
+    Conflict:
+      description: Ressource déjà existante
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorApiResponse'
+    BusinessError:
+      description: Règle métier violée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorApiResponse'
+    ValidationError:
+      description: Données de saisie invalides
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorApiResponse'
+
+  # ── SCHEMAS ──────────────────────────────────────────────────────────────────
+
+  schemas:
+
+    # -- Enums ----------------------------------------------------------------
+
+    Gender:
+      type: string
+      enum: [MALE, FEMALE, OTHER]
+
+    TestOrderStatus:
+      type: string
+      enum: [PENDING, IN_PROGRESS, COMPLETED, CANCELLED, DELIVERED]
+
+    ReportStatus:
+      type: string
+      enum: [DRAFT, PENDING_REVIEW, VALIDATED, DELIVERED]
+
+    InvoiceStatus:
+      type: string
+      enum: [PENDING, PAID, PARTIALLY_PAID, CANCELLED]
+
+    PaymentMethod:
+      type: string
+      enum: [CASH, CARD, TRANSFER, CHECK, MOBILE_MONEY]
+
+    MovementType:
+      type: string
+      enum: [IN, OUT, ADJUSTMENT]
+
+    TicketStatus:
+      type: string
+      enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED]
+
+    TicketPriority:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+    TimeoffStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+
+    # -- Base response wrappers -----------------------------------------------
+
+    PageMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          example: 100
+        totalPages:
+          type: integer
+          example: 5
+        last:
+          type: boolean
+
+    EmptyApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: OK
+        data:
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Ressource introuvable
+        data:
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    ValidationErrorApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Erreurs de validation
+        data:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            firstName: Le prénom est obligatoire
+            email: L'email doit être valide
+        timestamp:
+          type: string
+          format: date-time
+
+    UpdateStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: VALIDATED
+
+    SimpleNameRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Hématologie
+
+    AssignPermissionsRequest:
+      type: object
+      required: [permissionIds]
+      properties:
+        permissionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # -- Auth -----------------------------------------------------------------
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@labo.com
+        password:
+          type: string
+          minLength: 8
+          example: P@ssw0rd
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    UpdatePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        isActive:
+          type: boolean
+        branchId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+          example: Bearer
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    LoginApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/LoginResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    # -- Branch ---------------------------------------------------------------
+
+    BranchRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Agence centrale
+        address:
+          type: string
+        phone:
+          type: string
+
+    BranchResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    BranchApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/BranchResponse'
+        timestamp: {type: string, format: date-time}
+
+    BranchPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/BranchResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- User -----------------------------------------------------------------
+
+    UserRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        phone:
+          type: string
+        isActive:
+          type: boolean
+          default: true
+
+    UserApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/UserResponse'
+        timestamp: {type: string, format: date-time}
+
+    UserPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/UserResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Role / Permission ----------------------------------------------------
+
+    PermissionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+
+    RoleRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        permissionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    RoleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionResponse'
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/RoleResponse'
+        timestamp: {type: string, format: date-time}
+
+    RolePageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RoleResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Patient --------------------------------------------------------------
+
+    PatientRequest:
+      type: object
+      required: [firstName, lastName, gender]
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+          pattern: '^[+]?[0-9]{6,20}$'
+        email:
+          type: string
+          format: email
+        birthDate:
+          type: string
+          format: date
+        gender:
+          $ref: '#/components/schemas/Gender'
+        address:
+          type: string
+
+    PatientResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        gender:
+          $ref: '#/components/schemas/Gender'
+        address:
+          type: string
+        branchId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    PatientApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/PatientResponse'
+        timestamp: {type: string, format: date-time}
+
+    PatientPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PatientResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Doctor / Hospital ----------------------------------------------------
+
+    HospitalRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        contractPermission:
+          type: string
+
+    HospitalResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        contractPermission:
+          type: string
+        branchId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    HospitalApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/HospitalResponse'
+        timestamp: {type: string, format: date-time}
+
+    HospitalPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/HospitalResponse'
+        timestamp: {type: string, format: date-time}
+
+    DoctorRequest:
+      type: object
+      required: [firstName, lastName]
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        speciality:
+          type: string
+        hospitalId:
+          type: string
+          format: uuid
+
+    DoctorResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        speciality:
+          type: string
+        hospitalId:
+          type: string
+          format: uuid
+        hospitalName:
+          type: string
+        branchId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    DoctorApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/DoctorResponse'
+        timestamp: {type: string, format: date-time}
+
+    DoctorPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/DoctorResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Catalogue analyses ---------------------------------------------------
+
+    CategoryTestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        branchId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    CategoryTestApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/CategoryTestResponse'
+        timestamp: {type: string, format: date-time}
+
+    CategoryTestPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CategoryTestResponse'
+        timestamp: {type: string, format: date-time}
+
+    UnitMeasurementRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        abbreviation:
+          type: string
+
+    UnitMeasurementResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        abbreviation:
+          type: string
+        branchId:
+          type: string
+          format: uuid
+
+    UnitMeasurementApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/UnitMeasurementResponse'
+        timestamp: {type: string, format: date-time}
+
+    UnitMeasurementPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/UnitMeasurementResponse'
+        timestamp: {type: string, format: date-time}
+
+    TypeOrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        branchId:
+          type: string
+          format: uuid
+
+    TypeOrderApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/TypeOrderResponse'
+        timestamp: {type: string, format: date-time}
+
+    TypeOrderPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TypeOrderResponse'
+        timestamp: {type: string, format: date-time}
+
+    LabTestRequest:
+      type: object
+      required: [name, price]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        price:
+          type: number
+          format: double
+          minimum: 0
+        normalValue:
+          type: string
+        categoryTestId:
+          type: string
+          format: uuid
+        unitMeasurementId:
+          type: string
+          format: uuid
+
+    LabTestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        price:
+          type: number
+          format: double
+        normalValue:
+          type: string
+        categoryTestId:
+          type: string
+          format: uuid
+        categoryTestName:
+          type: string
+        unitMeasurementId:
+          type: string
+          format: uuid
+        unitMeasurementName:
+          type: string
+        branchId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    LabTestApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/LabTestResponse'
+        timestamp: {type: string, format: date-time}
+
+    LabTestPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/LabTestResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Test Orders ----------------------------------------------------------
+
+    DetailTestOrderRequest:
+      type: object
+      required: [labTestId]
+      properties:
+        labTestId:
+          type: string
+          format: uuid
+        result:
+          type: string
+        normalValue:
+          type: string
+
+    DetailTestOrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        labTestId:
+          type: string
+          format: uuid
+        labTestName:
+          type: string
+        result:
+          type: string
+        normalValue:
+          type: string
+        status:
+          type: string
+
+    TestOrderRequest:
+      type: object
+      required: [patientId, prelevementDate]
+      properties:
+        patientId:
+          type: string
+          format: uuid
+        prelevementDate:
+          type: string
+          format: date
+        typeOrderId:
+          type: string
+          format: uuid
+        doctorId:
+          type: string
+          format: uuid
+        hospitalId:
+          type: string
+          format: uuid
+        contratId:
+          type: string
+          format: uuid
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailTestOrderRequest'
+
+    TestOrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: LAB-20260512-0001
+        status:
+          $ref: '#/components/schemas/TestOrderStatus'
+        prelevementDate:
+          type: string
+          format: date
+        patientId:
+          type: string
+          format: uuid
+        patientFirstName:
+          type: string
+        patientLastName:
+          type: string
+        doctorId:
+          type: string
+          format: uuid
+        doctorFirstName:
+          type: string
+        doctorLastName:
+          type: string
+        hospitalId:
+          type: string
+          format: uuid
+        hospitalName:
+          type: string
+        isCalled:
+          type: boolean
+        calledAt:
+          type: string
+          format: date-time
+          nullable: true
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailTestOrderResponse'
+        branchId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    TestOrderApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/TestOrderResponse'
+        timestamp: {type: string, format: date-time}
+
+    TestOrderPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TestOrderResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Reports --------------------------------------------------------------
+
+    ReportRequest:
+      type: object
+      required: [testOrderId]
+      properties:
+        testOrderId:
+          type: string
+          format: uuid
+        titleId:
+          type: string
+          format: uuid
+        content:
+          type: string
+        comment:
+          type: string
+        reviewedById:
+          type: string
+          format: uuid
+        signatory1Id:
+          type: string
+          format: uuid
+        signatory2Id:
+          type: string
+          format: uuid
+        signatory3Id:
+          type: string
+          format: uuid
+        receiverName:
+          type: string
+        tagIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    ReportResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        testOrderId:
+          type: string
+          format: uuid
+        testOrderCode:
+          type: string
+        titleId:
+          type: string
+          format: uuid
+        titleName:
+          type: string
+        content:
+          type: string
+        comment:
+          type: string
+        status:
+          $ref: '#/components/schemas/ReportStatus'
+        isDelivered:
+          type: boolean
+        receiverName:
+          type: string
+        branchId:
+          type: string
+          format: uuid
+        tagNames:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ReportApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/ReportResponse'
+        timestamp: {type: string, format: date-time}
+
+    ReportPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ReportResponse'
+        timestamp: {type: string, format: date-time}
+
+    TitleReportResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    TitleReportApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/TitleReportResponse'
+        timestamp: {type: string, format: date-time}
+
+    TitleReportPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TitleReportResponse'
+        timestamp: {type: string, format: date-time}
+
+    PathologyMacroRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+
+    PathologyMacroResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        content: {type: string}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    PathologyMacroApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/PathologyMacroResponse'
+        timestamp: {type: string, format: date-time}
+
+    PathologyMacroPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PathologyMacroResponse'
+        timestamp: {type: string, format: date-time}
+
+    TagResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        branchId: {type: string, format: uuid}
+
+    TagApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/TagResponse'
+        timestamp: {type: string, format: date-time}
+
+    TagPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TagResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Consultations --------------------------------------------------------
+
+    ConsultationRequest:
+      type: object
+      required: [patientId, date]
+      properties:
+        patientId:
+          type: string
+          format: uuid
+        doctorId:
+          type: string
+          format: uuid
+        typeConsultationId:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        date:
+          type: string
+          format: date
+
+    ConsultationResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        patientId: {type: string, format: uuid}
+        patientFirstName: {type: string}
+        patientLastName: {type: string}
+        doctorId: {type: string, format: uuid}
+        doctorLastName: {type: string}
+        typeConsultationId: {type: string, format: uuid}
+        typeConsultationName: {type: string}
+        notes: {type: string}
+        date: {type: string, format: date}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    ConsultationApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/ConsultationResponse'
+        timestamp: {type: string, format: date-time}
+
+    ConsultationPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ConsultationResponse'
+        timestamp: {type: string, format: date-time}
+
+    TypeConsultationResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        branchId: {type: string, format: uuid}
+
+    TypeConsultationApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/TypeConsultationResponse'
+        timestamp: {type: string, format: date-time}
+
+    TypeConsultationPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TypeConsultationResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Contracts ------------------------------------------------------------
+
+    ContratDetailRequest:
+      type: object
+      properties:
+        labTestId:
+          type: string
+          format: uuid
+        price:
+          type: number
+          format: double
+
+    ContratDetailResponse:
+      type: object
+      properties:
+        labTestId: {type: string, format: uuid}
+        labTestName: {type: string}
+        price: {type: number, format: double}
+
+    ContratRequest:
+      type: object
+      required: [startDate]
+      properties:
+        hospitalId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        nbrTests:
+          type: integer
+        status:
+          type: string
+          default: ACTIVE
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContratDetailRequest'
+
+    ContratResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        hospitalId: {type: string, format: uuid}
+        hospitalName: {type: string}
+        nbrTests: {type: integer}
+        startDate: {type: string, format: date}
+        endDate: {type: string, format: date, nullable: true}
+        status: {type: string}
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContratDetailResponse'
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    ContratApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/ContratResponse'
+        timestamp: {type: string, format: date-time}
+
+    ContratPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ContratResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Finance --------------------------------------------------------------
+
+    InvoiceDetailRequest:
+      type: object
+      properties:
+        labTestId: {type: string, format: uuid}
+        quantity: {type: integer, default: 1}
+        unitPrice: {type: number, format: double}
+
+    InvoiceRequest:
+      type: object
+      required: [testOrderId, patientId]
+      properties:
+        testOrderId: {type: string, format: uuid}
+        patientId: {type: string, format: uuid}
+        dueDate: {type: string, format: date}
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvoiceDetailRequest'
+
+    InvoiceResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        testOrderId: {type: string, format: uuid}
+        testOrderCode: {type: string}
+        patientId: {type: string, format: uuid}
+        patientName: {type: string}
+        total: {type: number, format: double}
+        status:
+          $ref: '#/components/schemas/InvoiceStatus'
+        dueDate: {type: string, format: date, nullable: true}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    InvoiceApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/InvoiceResponse'
+        timestamp: {type: string, format: date-time}
+
+    InvoicePageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/InvoiceResponse'
+        timestamp: {type: string, format: date-time}
+
+    PaymentRequest:
+      type: object
+      required: [invoiceId, amount, paymentDate]
+      properties:
+        invoiceId: {type: string, format: uuid}
+        amount: {type: number, format: double, minimum: 0.01}
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        paymentDate: {type: string, format: date}
+        notes: {type: string}
+
+    PaymentResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        invoiceId: {type: string, format: uuid}
+        amount: {type: number, format: double}
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        paymentDate: {type: string, format: date}
+        notes: {type: string}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    PaymentApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/PaymentResponse'
+        timestamp: {type: string, format: date-time}
+
+    PaymentPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PaymentResponse'
+        timestamp: {type: string, format: date-time}
+
+    CashboxResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        balance: {type: number, format: double}
+        branchId: {type: string, format: uuid}
+
+    CashboxApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/CashboxResponse'
+        timestamp: {type: string, format: date-time}
+
+    CashboxPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CashboxResponse'
+        timestamp: {type: string, format: date-time}
+
+    RefundRequest:
+      type: object
+      required: [paymentId, reason, amount]
+      properties:
+        paymentId: {type: string, format: uuid}
+        reason: {type: string}
+        amount: {type: number, format: double}
+
+    RefundResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        paymentId: {type: string, format: uuid}
+        reason: {type: string}
+        status: {type: string}
+        amount: {type: number, format: double}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    RefundApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/RefundResponse'
+        timestamp: {type: string, format: date-time}
+
+    RefundPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RefundResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- HR -------------------------------------------------------------------
+
+    EmployeeRequest:
+      type: object
+      required: [firstName, lastName]
+      properties:
+        firstName: {type: string}
+        lastName: {type: string}
+        phone: {type: string}
+        email: {type: string, format: email}
+        position: {type: string}
+        salary: {type: number, format: double}
+        hireDate: {type: string, format: date}
+        userId: {type: string, format: uuid}
+
+    EmployeeResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        firstName: {type: string}
+        lastName: {type: string}
+        phone: {type: string}
+        email: {type: string}
+        position: {type: string}
+        salary: {type: number, format: double}
+        hireDate: {type: string, format: date}
+        userId: {type: string, format: uuid, nullable: true}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    EmployeeApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/EmployeeResponse'
+        timestamp: {type: string, format: date-time}
+
+    EmployeePageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/EmployeeResponse'
+        timestamp: {type: string, format: date-time}
+
+    EmployeeContratRequest:
+      type: object
+      required: [startDate, type, salary]
+      properties:
+        startDate: {type: string, format: date}
+        endDate: {type: string, format: date}
+        type: {type: string, example: CDI}
+        salary: {type: number, format: double}
+
+    EmployeeContratResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        startDate: {type: string, format: date}
+        endDate: {type: string, format: date, nullable: true}
+        type: {type: string}
+        salary: {type: number, format: double}
+        createdAt: {type: string, format: date-time}
+
+    EmployeeContratApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/EmployeeContratResponse'
+        timestamp: {type: string, format: date-time}
+
+    EmployeeContratListApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeContratResponse'
+        timestamp: {type: string, format: date-time}
+
+    EmployeePayrollRequest:
+      type: object
+      required: [month, year, grossSalary]
+      properties:
+        month: {type: integer, minimum: 1, maximum: 12}
+        year: {type: integer}
+        grossSalary: {type: number, format: double}
+        deductions: {type: number, format: double, default: 0}
+        paidAt: {type: string, format: date}
+
+    EmployeePayrollResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        month: {type: integer}
+        year: {type: integer}
+        grossSalary: {type: number, format: double}
+        deductions: {type: number, format: double}
+        netSalary: {type: number, format: double}
+        paidAt: {type: string, format: date, nullable: true}
+        createdAt: {type: string, format: date-time}
+
+    EmployeePayrollApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/EmployeePayrollResponse'
+        timestamp: {type: string, format: date-time}
+
+    EmployeePayrollListApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeePayrollResponse'
+        timestamp: {type: string, format: date-time}
+
+    EmployeeTimeoffRequest:
+      type: object
+      required: [startDate, endDate]
+      properties:
+        startDate: {type: string, format: date}
+        endDate: {type: string, format: date}
+        reason: {type: string}
+
+    EmployeeTimeoffResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        startDate: {type: string, format: date}
+        endDate: {type: string, format: date}
+        reason: {type: string}
+        status:
+          $ref: '#/components/schemas/TimeoffStatus'
+        createdAt: {type: string, format: date-time}
+
+    EmployeeTimeoffApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/EmployeeTimeoffResponse'
+        timestamp: {type: string, format: date-time}
+
+    EmployeeTimeoffListApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeTimeoffResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Inventory ------------------------------------------------------------
+
+    ArticleRequest:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        code: {type: string}
+        unit: {type: string}
+        purchasePrice: {type: number, format: double}
+        supplierId: {type: string, format: uuid}
+
+    ArticleResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        code: {type: string}
+        quantity: {type: number, format: double}
+        unit: {type: string}
+        purchasePrice: {type: number, format: double}
+        supplierId: {type: string, format: uuid, nullable: true}
+        supplierName: {type: string, nullable: true}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    ArticleApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/ArticleResponse'
+        timestamp: {type: string, format: date-time}
+
+    ArticlePageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ArticleResponse'
+        timestamp: {type: string, format: date-time}
+
+    SupplierRequest:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        phone: {type: string}
+        email: {type: string, format: email}
+        address: {type: string}
+        category: {type: string}
+
+    SupplierResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        phone: {type: string}
+        email: {type: string}
+        address: {type: string}
+        category: {type: string}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    SupplierApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/SupplierResponse'
+        timestamp: {type: string, format: date-time}
+
+    SupplierPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SupplierResponse'
+        timestamp: {type: string, format: date-time}
+
+    MovementRequest:
+      type: object
+      required: [articleId, type, quantity]
+      properties:
+        articleId: {type: string, format: uuid}
+        type:
+          $ref: '#/components/schemas/MovementType'
+        quantity: {type: number, format: double, minimum: 0.01}
+        notes: {type: string}
+
+    MovementResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        articleId: {type: string, format: uuid}
+        articleName: {type: string}
+        type:
+          $ref: '#/components/schemas/MovementType'
+        quantity: {type: number, format: double}
+        notes: {type: string}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    MovementApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/MovementResponse'
+        timestamp: {type: string, format: date-time}
+
+    MovementPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/MovementResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Settings -------------------------------------------------------------
+
+    SettingRequest:
+      type: object
+      required: [key]
+      properties:
+        key: {type: string}
+        value: {type: string}
+
+    SettingResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        key: {type: string}
+        value: {type: string}
+        placeholder: {type: string}
+        ico: {type: string}
+        branchId: {type: string, format: uuid}
+
+    SettingApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/SettingResponse'
+        timestamp: {type: string, format: date-time}
+
+    SettingListApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettingResponse'
+        timestamp: {type: string, format: date-time}
+
+    ReportTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        header: {type: string}
+        footer: {type: string}
+        logoPath: {type: string}
+
+    ReportTemplateResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        header: {type: string}
+        footer: {type: string}
+        logoPath: {type: string}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    ReportTemplateApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/ReportTemplateResponse'
+        timestamp: {type: string, format: date-time}
+
+    ReportTemplateListApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportTemplateResponse'
+        timestamp: {type: string, format: date-time}
+
+    # -- Support --------------------------------------------------------------
+
+    TicketRequest:
+      type: object
+      required: [title]
+      properties:
+        title: {type: string}
+        description: {type: string}
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+
+    TicketResponse:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        description: {type: string}
+        status:
+          $ref: '#/components/schemas/TicketStatus'
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+        userId: {type: string, format: uuid}
+        userName: {type: string}
+        branchId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+
+    TicketApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          $ref: '#/components/schemas/TicketResponse'
+        timestamp: {type: string, format: date-time}
+
+    TicketPageApiResponse:
+      type: object
+      properties:
+        success: {type: boolean}
+        message: {type: string}
+        data:
+          allOf:
+            - $ref: '#/components/schemas/PageMeta'
+            - type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TicketResponse'
+        timestamp: {type: string, format: date-time}

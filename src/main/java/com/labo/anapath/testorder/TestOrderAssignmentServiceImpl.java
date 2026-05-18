@@ -1,0 +1,163 @@
+package com.labo.anapath.testorder;
+
+import com.labo.anapath.branch.Branch;
+import com.labo.anapath.branch.BranchRepository;
+import com.labo.anapath.common.dto.PageResponse;
+import com.labo.anapath.common.exception.ResourceNotFoundException;
+import com.labo.anapath.report.TestPathologyMacro;
+import com.labo.anapath.report.TestPathologyMacroRepository;
+import com.labo.anapath.user.User;
+import com.labo.anapath.user.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class TestOrderAssignmentServiceImpl implements TestOrderAssignmentService {
+
+    private final TestOrderAssignmentRepository assignmentRepository;
+    private final TestOrderAssignmentDetailRepository detailRepository;
+    private final TestOrderRepository testOrderRepository;
+    private final UserRepository userRepository;
+    private final BranchRepository branchRepository;
+    private final TestPathologyMacroRepository macroRepository;
+
+    @Override
+    @Transactional
+    public AssignmentResponseDto create(AssignmentRequestDto dto, UUID branchId) {
+        User user = userRepository.findById(dto.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", dto.getUserId()));
+        TestOrderAssignment assignment = new TestOrderAssignment();
+        assignment.setBranchId(branchId);
+        assignment.setUser(user);
+        assignment.setNote(dto.getNote());
+        assignment.setDate(dto.getDate() != null ? dto.getDate() : LocalDate.now());
+        assignment.setCode(generateCode(branchId));
+        TestOrderAssignment saved = assignmentRepository.save(assignment);
+        log.info("Assignment créé: id={}, code={}", saved.getId(), saved.getCode());
+        return toDto(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<AssignmentResponseDto> findAll(int page, int size, UUID branchId) {
+        Page<TestOrderAssignment> p = assignmentRepository.findHistoCyto(branchId, PageRequest.of(page, size));
+        return PageResponse.of(p.map(this::toDto));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<AssignmentResponseDto> findAllImmuno(int page, int size, UUID branchId) {
+        Page<TestOrderAssignment> p = assignmentRepository.findImmuno(branchId, PageRequest.of(page, size));
+        return PageResponse.of(p.map(this::toDto));
+    }
+
+    @Override
+    @Transactional
+    public AssignmentDetailResponseDto addDetail(UUID assignmentId, AssignmentDetailRequestDto dto) {
+        TestOrderAssignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", assignmentId));
+        TestOrder order = testOrderRepository.findById(dto.getTestOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("Bon d'examen", dto.getTestOrderId()));
+
+        boolean alreadyAssigned = detailRepository.existsByTestOrderId(dto.getTestOrderId());
+
+        TestOrderAssignmentDetail detail;
+        if (!alreadyAssigned) {
+            detail = new TestOrderAssignmentDetail();
+            detail.setBranchId(assignment.getBranchId());
+            detail.setTestOrderAssignment(assignment);
+            detail.setTestOrder(order);
+            detail.setTestOrderCode(order.getCode());
+            detail.setNote(dto.getNote());
+            detailRepository.save(detail);
+        } else {
+            detail = detailRepository.findByTestOrderId(dto.getTestOrderId())
+                    .orElseGet(TestOrderAssignmentDetail::new);
+        }
+
+        Optional<TestPathologyMacro> existingMacro = macroRepository.findByTestOrderId(order.getId());
+        if (existingMacro.isPresent()) {
+            existingMacro.get().setAllStepsTrue();
+            macroRepository.save(existingMacro.get());
+        } else {
+            TestPathologyMacro macro = new TestPathologyMacro();
+            macro.setBranchId(assignment.getBranchId());
+            macro.setTestOrderId(order.getId());
+            macro.setTitle("Macro - " + order.getCode());
+            macro.setMacroDate(dto.getDate() != null ? dto.getDate() : LocalDate.now());
+            macro.setAllStepsTrue();
+            macroRepository.save(macro);
+        }
+
+        return new AssignmentDetailResponseDto(detail.getId(), order.getId(), order.getCode(), detail.getNote());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AssignmentPrintDto getPrintData(UUID assignmentId) {
+        TestOrderAssignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", assignmentId));
+        Branch branch = branchRepository.findById(assignment.getBranchId()).orElse(null);
+        List<AssignmentDetailResponseDto> details = assignment.getDetails().stream()
+                .map(d -> new AssignmentDetailResponseDto(
+                        d.getId(),
+                        d.getTestOrder() != null ? d.getTestOrder().getId() : null,
+                        d.getTestOrderCode(),
+                        d.getNote()))
+                .toList();
+        return new AssignmentPrintDto(
+                toDto(assignment),
+                details,
+                branch != null ? branch.getName() : null,
+                branch != null ? branch.getLocation() : null);
+    }
+
+    @Override
+    @Transactional
+    public AssignmentResponseDto update(UUID id, AssignmentRequestDto dto) {
+        TestOrderAssignment assignment = assignmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", id));
+        User user = userRepository.findById(dto.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", dto.getUserId()));
+        assignment.setUser(user);
+        assignment.setNote(dto.getNote());
+        if (dto.getDate() != null) assignment.setDate(dto.getDate());
+        return toDto(assignmentRepository.save(assignment));
+    }
+
+    @Override
+    @Transactional
+    public void deleteDetail(UUID detailId) {
+        TestOrderAssignmentDetail detail = detailRepository.findById(detailId)
+                .orElseThrow(() -> new ResourceNotFoundException("Détail d'assignment", detailId));
+        detailRepository.delete(detail);
+    }
+
+    private String generateCode(UUID branchId) {
+        int year = LocalDate.now().getYear() % 100;
+        long count = assignmentRepository.countByBranchId(branchId) + 1;
+        return String.format("ASS%02d-%04d", year, count);
+    }
+
+    private AssignmentResponseDto toDto(TestOrderAssignment a) {
+        String userName = a.getUser() != null
+                ? a.getUser().getFirstname() + " " + a.getUser().getLastname()
+                : null;
+        return new AssignmentResponseDto(
+                a.getId(), a.getCode(),
+                a.getUser() != null ? a.getUser().getId() : null,
+                userName, a.getDate(), a.getNote(),
+                a.getDetails().size(), a.getBranchId(), a.getCreatedAt());
+    }
+}

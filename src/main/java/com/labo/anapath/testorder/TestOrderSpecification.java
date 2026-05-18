@@ -1,0 +1,75 @@
+package com.labo.anapath.testorder;
+
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Fabrique de {@link Specification} JPA pour le filtrage dynamique des bons d'examen.
+ *
+ * <p>Utilisée par {@link TestOrderRepository} (qui étend {@link org.springframework.data.jpa.repository.JpaSpecificationExecutor})
+ * pour construire des requêtes SQL dynamiques selon les critères fournis dans {@link TestOrderFilterDto}.
+ * Chaque critère null est ignoré (pas de prédicat ajouté).
+ *
+ * <p>Cette classe est utilitaire et ne doit pas être instanciée.
+ */
+public class TestOrderSpecification {
+
+    private TestOrderSpecification() {}
+
+    /**
+     * Construit une {@link Specification} combinant tous les critères de filtrage actifs.
+     *
+     * <p>Critères supportés :
+     * <ul>
+     *   <li>branchId : toujours appliqué (isolation multi-tenant)</li>
+     *   <li>status, patientId, doctorId, hospitalId, isUrgent : égalité stricte</li>
+     *   <li>from / to : plage de dates sur {@code prelevementDate}</li>
+     *   <li>search : recherche insensible à la casse sur le code du bon</li>
+     * </ul>
+     *
+     * @param branchId identifiant de la branche (toujours requis)
+     * @param filter   critères optionnels de filtrage
+     * @return la spécification composée à passer au repository
+     */
+    public static Specification<TestOrder> filter(UUID branchId, TestOrderFilterDto filter) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            query.distinct(true);
+
+            predicates.add(cb.equal(root.get("branchId"), branchId));
+
+            if (filter.getStatus() != null) {
+                predicates.add(cb.equal(root.get("status"), filter.getStatus()));
+            }
+            if (filter.getPatientId() != null) {
+                predicates.add(cb.equal(root.get("patient").get("id"), filter.getPatientId()));
+            }
+            if (filter.getDoctorId() != null) {
+                predicates.add(cb.equal(root.get("doctor").get("id"), filter.getDoctorId()));
+            }
+            if (filter.getHospitalId() != null) {
+                predicates.add(cb.equal(root.get("hospital").get("id"), filter.getHospitalId()));
+            }
+            if (filter.getIsUrgent() != null) {
+                predicates.add(cb.equal(root.get("isUrgent"), filter.getIsUrgent()));
+            }
+            if (filter.getFrom() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("prelevementDate"), filter.getFrom()));
+            }
+            if (filter.getTo() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("prelevementDate"), filter.getTo()));
+            }
+            if (filter.getSearch() != null && !filter.getSearch().isBlank()) {
+                String pattern = "%" + filter.getSearch().toLowerCase() + "%";
+                Predicate codeMatch = cb.like(cb.lower(cb.coalesce(root.get("code"), "")), pattern);
+                predicates.add(cb.or(codeMatch));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+}

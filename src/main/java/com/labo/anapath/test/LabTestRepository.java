@@ -1,0 +1,77 @@
+package com.labo.anapath.test;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Repository JPA pour l'entité {@link LabTest}.
+ *
+ * <p>Les requêtes sont automatiquement filtrées par {@code deleted_at IS NULL}
+ * grâce à la restriction Hibernate définie sur l'entité.</p>
+ */
+@Repository
+public interface LabTestRepository extends JpaRepository<LabTest, UUID> {
+
+    /**
+     * Retourne la liste paginée des analyses d'une succursale donnée.
+     *
+     * @param branchId identifiant de la succursale
+     * @param pageable paramètres de pagination et de tri
+     * @return page d'analyses
+     */
+    Page<LabTest> findByBranchId(UUID branchId, Pageable pageable);
+
+    /**
+     * Recherche les analyses dont le nom contient le terme donné, dans une succursale.
+     * Utilisé pour l'autocomplétion dans les formulaires de demande.
+     *
+     * @param name     terme de recherche (recherche partielle, insensible à la casse)
+     * @param branchId identifiant de la succursale
+     * @return liste des analyses correspondantes
+     */
+    List<LabTest> findByNameContainingIgnoreCaseAndBranchId(String name, UUID branchId);
+
+    /**
+     * Vérifie si une analyse portant ce nom existe dans la succursale (insensible à la casse).
+     * Utilisé pour détecter les doublons lors de la création.
+     *
+     * @param name     nom de l'analyse
+     * @param branchId identifiant de la succursale
+     * @return {@code true} si le nom est déjà utilisé
+     */
+    boolean existsByNameIgnoreCaseAndBranchId(String name, UUID branchId);
+
+    /**
+     * Vérifie si une analyse portant ce nom existe dans la succursale, en excluant
+     * celle identifiée par {@code id}. Utilisé pour détecter les doublons lors d'une mise à jour.
+     *
+     * @param name     nom de l'analyse
+     * @param branchId identifiant de la succursale
+     * @param id       identifiant de l'analyse à exclure
+     * @return {@code true} si le nom est déjà utilisé par une autre analyse
+     */
+    boolean existsByNameIgnoreCaseAndBranchIdAndIdNot(String name, UUID branchId, UUID id);
+
+    /**
+     * Vérifie si au moins une analyse utilise l'unité de mesure donnée.
+     * Utilisé pour bloquer la suppression d'une unité référencée.
+     *
+     * @param unitMeasurement unité de mesure à vérifier
+     * @return {@code true} si l'unité est référencée par une analyse
+     */
+    boolean existsByUnitMeasurement(UnitMeasurement unitMeasurement);
+
+    /**
+     * Vérifie si au moins une analyse appartient à la catégorie donnée.
+     * Utilisé pour bloquer la suppression d'une catégorie référencée.
+     *
+     * @param categoryTest catégorie à vérifier
+     * @return {@code true} si la catégorie est référencée par une analyse
+     */
+    boolean existsByCategoryTest(CategoryTest categoryTest);
+}

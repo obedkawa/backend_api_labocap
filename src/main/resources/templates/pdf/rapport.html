@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; }
+        .patient-info { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .patient-info p { margin: 4px 0; }
+        .section { margin: 15px 0; }
+        .section h3 { border-bottom: 1px solid #666; color: #333; }
+        .signature-zone { margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .signature-block { text-align: center; min-width: 150px; }
+        .footer { margin-top: 30px; border-top: 1px solid #333; padding-top: 8px; text-align: center; font-size: 10px; }
+        strong { font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header" th:utext="${entete}">En-tête du laboratoire</div>
+
+    <div class="patient-info">
+        <p><strong>N° bon d'examen :</strong> <span th:text="${testOrderCode}"></span></p>
+        <p><strong>Patient :</strong> <span th:text="${patientLastname + ' ' + patientFirstname}"></span></p>
+        <p><strong>Âge :</strong> <span th:text="${patientAge + ' ' + patientAgeUnit}"></span></p>
+        <p><strong>Genre :</strong> <span th:text="${patientGenre}"></span></p>
+        <p><strong>Médecin prescripteur :</strong> <span th:text="${doctorName}"></span></p>
+        <p><strong>Hôpital :</strong> <span th:text="${hospitalName}"></span></p>
+        <p><strong>Date prélèvement :</strong> <span th:text="${prelevementDate}"></span></p>
+        <p><strong>Date signature :</strong> <span th:text="${signatureDate}"></span></p>
+    </div>
+
+    <div class="section">
+        <h3 th:text="${title}">Résultats</h3>
+        <div th:utext="${content}">Contenu macroscopique</div>
+    </div>
+
+    <div class="section" th:if="${!#strings.isEmpty(contentMicro)}">
+        <h3>Microscopie</h3>
+        <div th:utext="${contentMicro}">Contenu microscopique</div>
+    </div>
+
+    <div class="section" th:if="${!#strings.isEmpty(contentSupplementaire)}">
+        <h3>Description supplémentaire</h3>
+        <div th:utext="${contentSupplementaire}"></div>
+    </div>
+
+    <div class="section" th:if="${!#strings.isEmpty(contentSupplementaireMicro)}">
+        <h3>Description supplémentaire (micro)</h3>
+        <div th:utext="${contentSupplementaireMicro}"></div>
+    </div>
+
+    <div class="section" th:if="${!#strings.isEmpty(reviewedBy)}">
+        <p><strong th:text="${reportReviewTitle}">Relu par</strong> : <span th:text="${reviewedBy}"></span></p>
+    </div>
+
+    <div class="signature-zone">
+        <div class="signature-block" th:if="${!#strings.isEmpty(signator)}">
+            <img th:if="${!#strings.isEmpty(signature1)}" th:src="${signature1}" height="60" alt="Signature"/>
+            <p th:text="${signator}"></p>
+        </div>
+        <div class="signature-block" th:if="${!#strings.isEmpty(signatory2Name)}">
+            <p th:text="${signatory2Name}"></p>
+        </div>
+        <div class="signature-block" th:if="${!#strings.isEmpty(signatory3Name)}">
+            <p th:text="${signatory3Name}"></p>
+        </div>
+        <div class="signature-block">
+            <img th:if="${!#strings.isEmpty(qrcode)}" th:src="${qrcode}" width="80" height="80" alt="QR Code"/>
+        </div>
+    </div>
+
+    <div class="footer" th:utext="${footer}">Pied de page</div>
+
+</body>
+</html>

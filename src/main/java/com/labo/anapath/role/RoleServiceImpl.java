@@ -1,0 +1,153 @@
+package com.labo.anapath.role;
+
+import com.labo.anapath.common.dto.PageResponse;
+import com.labo.anapath.common.exception.DuplicateResourceException;
+import com.labo.anapath.common.exception.ResourceNotFoundException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Implémentation de {@link RoleService} gérant la logique métier des rôles RBAC.
+ *
+ * <p>Responsabilités principales :
+ * <ul>
+ *   <li>Génération et validation de l'unicité des slugs</li>
+ *   <li>Résolution des entités {@link Permission} à partir de leurs identifiants</li>
+ *   <li>Gestion des associations rôle ↔ permissions</li>
+ * </ul>
+ * </p>
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class RoleServiceImpl implements RoleService {
+
+    private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
+    private final RoleMapper roleMapper;
+
+    /**
+     * {@inheritDoc}
+     * Les résultats sont triés par date de création décroissante.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<RoleResponseDto> findAll(int page, int size, UUID branchId) {
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<RoleResponseDto> result = roleRepository.findByBranchId(branchId, pageRequest)
+                .map(roleMapper::toResponseDto);
+        return PageResponse.of(result);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Transactional(readOnly = true)
+    public RoleResponseDto findById(UUID id) {
+        Role role = roleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Rôle", id));
+        return roleMapper.toResponseDto(role);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Le slug est dérivé du nom via {@link #generateSlug(String)} et doit
+     * être unique dans le système (toutes succursales confondues).</p>
+     */
+    @Override
+    @Transactional
+    public RoleResponseDto create(RoleRequestDto dto, UUID branchId) {
+        String slug = generateSlug(dto.getName());
+        if (roleRepository.existsBySlug(slug)) {
+            throw new DuplicateResourceException("Un rôle avec le slug '" + slug + "' existe déjà.");
+        }
+        Role role = roleMapper.toEntity(dto);
+        role.setBranchId(branchId);
+        role.setSlug(slug);
+        if (dto.getPermissionIds() != null && !dto.getPermissionIds().isEmpty()) {
+            List<Permission> permissions = permissionRepository.findAllById(dto.getPermissionIds());
+            role.setPermissions(permissions);
+        }
+        Role saved = roleRepository.save(role);
+        log.info("Rôle créé: {}", saved.getId());
+        return roleMapper.toResponseDto(saved);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Si le nom change, le slug est recalculé. L'unicité du nouveau slug
+     * est vérifiée uniquement s'il diffère de l'ancien.</p>
+     */
+    @Override
+    @Transactional
+    public RoleResponseDto update(UUID id, RoleRequestDto dto) {
+        Role role = roleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Rôle", id));
+        String oldSlug = role.getSlug();
+        roleMapper.updateEntityFromDto(dto, role);
+        String newSlug = generateSlug(role.getName());
+        if (!newSlug.equals(oldSlug) && roleRepository.existsBySlug(newSlug)) {
+            throw new DuplicateResourceException("Un rôle avec le slug '" + newSlug + "' existe déjà.");
+        }
+        role.setSlug(newSlug);
+        if (dto.getPermissionIds() != null) {
+            List<Permission> permissions = permissionRepository.findAllById(dto.getPermissionIds());
+            role.setPermissions(permissions);
+        }
+        Role updated = roleRepository.save(role);
+        return roleMapper.toResponseDto(updated);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Transactional
+    public void delete(UUID id) {
+        Role role = roleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Rôle", id));
+        roleRepository.delete(role);
+        log.info("Rôle supprimé: {}", id);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Transactional
+    public RoleResponseDto assignPermissions(UUID roleId, List<UUID> permissionIds) {
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Rôle", roleId));
+        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+        role.setPermissions(permissions);
+        Role saved = roleRepository.save(role);
+        log.info("Permissions assignées au rôle {}: {}", roleId, permissionIds);
+        return roleMapper.toResponseDto(saved);
+    }
+
+    /**
+     * Génère un slug URL-friendly à partir d'un nom de rôle.
+     *
+     * <p>Les accents sont supprimés, les caractères non alphanumériques
+     * remplacés par des tirets, et les tirets en début/fin supprimés.</p>
+     *
+     * @param name nom source du rôle
+     * @return slug normalisé (ex. : "Super Administrateur" → "super-administrateur")
+     */
+    private String generateSlug(String name) {
+        return name.trim()
+                   .toLowerCase()
+                   .replaceAll("[àâä]", "a")
+                   .replaceAll("[éèêë]", "e")
+                   .replaceAll("[îï]", "i")
+                   .replaceAll("[ôö]", "o")
+                   .replaceAll("[ùûü]", "u")
+                   .replaceAll("[^a-z0-9]+", "-")
+                   .replaceAll("^-|-$", "");
+    }
+}

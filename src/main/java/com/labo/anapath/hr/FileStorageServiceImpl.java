@@ -1,0 +1,59 @@
+package com.labo.anapath.hr;
+
+import com.labo.anapath.common.exception.BusinessException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
+
+@Service
+@Slf4j
+public class FileStorageServiceImpl implements FileStorageService {
+
+    @Value("${app.storage.path:/tmp/labo/storage}")
+    private String basePath;
+
+    @Override
+    public String store(MultipartFile file, String subDirectory) {
+        try {
+            String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
+            String safeFilename = UUID.randomUUID() + "_" + original.replaceAll("[^a-zA-Z0-9._-]", "_");
+            Path dir = Paths.get(basePath, subDirectory);
+            Files.createDirectories(dir);
+            Path target = dir.resolve(safeFilename);
+            file.transferTo(target);
+            return subDirectory + "/" + safeFilename;
+        } catch (IOException e) {
+            throw new BusinessException("Erreur lors du stockage du fichier: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public Resource load(String filePath) {
+        try {
+            Path path = Paths.get(basePath).resolve(filePath);
+            return new UrlResource(path.toUri());
+        } catch (MalformedURLException e) {
+            throw new BusinessException("Chemin de fichier invalide: " + filePath);
+        }
+    }
+
+    @Override
+    public void delete(String filePath) {
+        try {
+            Path path = Paths.get(basePath).resolve(filePath);
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            log.warn("Impossible de supprimer le fichier physique: {}", filePath);
+        }
+    }
+}

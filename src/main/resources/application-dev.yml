@@ -1,0 +1,8 @@
+spring:
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.labo.anapath: DEBUG
+    org.hibernate.SQL: DEBUG

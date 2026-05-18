@@ -1,0 +1,171 @@
+package com.labo.anapath.report;
+
+import com.labo.anapath.common.audit.AuditableEntity;
+import com.labo.anapath.testorder.TestOrder;
+import com.labo.anapath.user.User;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Entité représentant un compte-rendu anatomopathologique (CR) lié à un bon d'examen.
+ *
+ * <p>Un Report est automatiquement créé au statut {@link ReportStatus#DRAFT} lors de
+ * la validation d'un {@link TestOrder}. Son code est préfixé par {@code "CO"} suivi
+ * du code du bon d'examen (ex. {@code COEX26-0001}).
+ *
+ * <p>Cycle de vie du compte-rendu :
+ * <ul>
+ *   <li>{@link ReportStatus#DRAFT} — rédigé en cours, modifiable</li>
+ *   <li>{@link ReportStatus#PENDING_REVIEW} — soumis pour relecture</li>
+ *   <li>{@link ReportStatus#VALIDATED} — validé par le pathologiste</li>
+ *   <li>{@link ReportStatus#DELIVERED} — remis au patient ou prescripteur</li>
+ * </ul>
+ *
+ * <p>La traçabilité de toutes les modifications est assurée via {@link LogReport}.
+ */
+@Entity
+@Table(name = "reports")
+@SQLDelete(sql = "UPDATE reports SET deleted_at = NOW() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
+@Getter
+@Setter
+@NoArgsConstructor
+public class Report extends AuditableEntity {
+
+    /** Code unique du compte-rendu (format : {@code "CO" + code du TestOrder}). */
+    @Column(name = "code", length = 100)
+    private String code;
+
+    /**
+     * Description initiale du compte-rendu, pré-remplie avec le placeholder
+     * configuré dans les réglages de la branche lors de la création automatique.
+     */
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    /** Bon d'examen auquel ce compte-rendu est rattaché (relation 1-1). */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "test_order_id", nullable = false)
+    private TestOrder testOrder;
+
+    /** Titre de section prédéfini sélectionné pour ce compte-rendu. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "title_id")
+    private TitleReport titleReport;
+
+    /** Contenu textuel principal du compte-rendu anatomopathologique. */
+    @Column(name = "content", columnDefinition = "TEXT")
+    private String content;
+
+    /** Commentaire additionnel du pathologiste (observations complémentaires). */
+    @Column(name = "comment", columnDefinition = "TEXT")
+    private String comment;
+
+    /** Statut courant du compte-rendu dans son cycle de vie. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 30)
+    private ReportStatus status = ReportStatus.DRAFT;
+
+    /** Utilisateur ayant relu et approuvé le compte-rendu. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewed_by_user_id")
+    private User reviewedBy;
+
+    /** Premier signataire du compte-rendu (pathologiste principal). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "signatory1")
+    private User signatory1;
+
+    /** Deuxième signataire optionnel (co-signataire). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "signatory2")
+    private User signatory2;
+
+    /** Troisième signataire optionnel. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "signatory3")
+    private User signatory3;
+
+    /** Indique si le compte-rendu a été physiquement remis au patient ou à son représentant. */
+    @Column(name = "is_delivered", nullable = false)
+    private boolean isDelivered = false;
+
+    /** Nom de la personne ayant récupéré le compte-rendu lors de la livraison. */
+    @Column(name = "receiver_name", length = 200)
+    private String receiverName;
+
+    /** Signature (base64 ou référence) du destinataire lors de la remise du compte-rendu. */
+    @Column(name = "receiver_signature", columnDefinition = "TEXT")
+    private String receiverSignature;
+
+    /** Date et heure de signature du compte-rendu (posée lors du passage au statut VALIDATED). */
+    @Column(name = "signature_date")
+    private LocalDateTime signatureDate;
+
+    /** Date et heure de livraison du compte-rendu (posée lors du passage au statut DELIVERED). */
+    @Column(name = "delivery_date")
+    private LocalDateTime deliveryDate;
+
+    /** Indique si le patient a été appelé pour récupérer son résultat. */
+    @Column(name = "is_called", nullable = false)
+    private boolean isCalled = false;
+
+    /** Date et heure de l'appel au patient. */
+    @Column(name = "call_date")
+    private LocalDateTime callDate;
+
+    /** Contenu microscopique du compte-rendu (description des lames). */
+    @Column(name = "content_micro", columnDefinition = "TEXT")
+    private String contentMicro;
+
+    /** Commentaire supplémentaire du pathologiste. */
+    @Column(name = "comment_sup", columnDefinition = "TEXT")
+    private String commentSup;
+
+    /** Description supplémentaire macroscopique. */
+    @Column(name = "description_supplementaire", columnDefinition = "TEXT")
+    private String descriptionSupplementaire;
+
+    /** Description supplémentaire microscopique. */
+    @Column(name = "description_supplementaire_micro", columnDefinition = "TEXT")
+    private String descriptionSupplementaireMicro;
+
+    /** Nom du récupérateur physique du compte-rendu (différent de receiverName — usage spécifique). */
+    @Column(name = "retriever_name", length = 200)
+    private String retrieverName;
+
+    /** Signature base64 du récupérateur lors de la remise physique du compte-rendu. */
+    @Column(name = "retriever_signature", columnDefinition = "TEXT")
+    private String retrieverSignature;
+
+    /** Template PDF sélectionné pour ce rapport. */
+    @Column(name = "template_id")
+    private UUID templateId;
+
+    /** Mots-clés (tags) associés au compte-rendu pour classification et recherche. */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "report_tags",
+            joinColumns = @JoinColumn(name = "report_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private List<Tag> tags = new ArrayList<>();
+}

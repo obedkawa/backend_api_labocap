@@ -1,0 +1,243 @@
+package com.labo.anapath.testorder;
+
+import com.labo.anapath.common.dto.ApiResponse;
+import com.labo.anapath.common.dto.PageResponse;
+import com.labo.anapath.common.security.UserPrincipal;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Contrôleur REST exposant les endpoints de gestion des bons d'examen ({@code /api/v1/test-orders}).
+ *
+ * <p>Opérations disponibles :
+ * <ul>
+ *   <li>Lister avec filtres multi-critères (statut, patient, médecin, dates, urgence, recherche)</li>
+ *   <li>Consulter un bon par identifiant</li>
+ *   <li>Créer un nouveau bon (statut initial PENDING)</li>
+ *   <li>Mettre à jour un bon en cours</li>
+ *   <li>Supprimer (soft delete) un bon non validé</li>
+ *   <li>Changer le statut vers VALIDATED (déclenchement du workflow complet)</li>
+ *   <li>Marquer un bon comme DELIVERED</li>
+ * </ul>
+ *
+ * <p>Chaque endpoint est protégé par une permission Spring Security ({@code @PreAuthorize}).
+ * L'isolation multi-tenant est assurée via le {@code branchId} extrait du principal authentifié.
+ */
+@RestController
+@RequestMapping("/api/v1/test-orders")
+@RequiredArgsConstructor
+public class TestOrderController {
+
+    private final TestOrderService testOrderService;
+
+    /**
+     * Retourne la liste paginée des bons d'examen de la branche de l'utilisateur connecté,
+     * filtrée selon les critères optionnels fournis en paramètres de requête.
+     *
+     * @param page      numéro de page (0-based, défaut 0)
+     * @param size      taille de la page (défaut 20)
+     * @param status    filtre sur le statut du bon
+     * @param patientId filtre sur le patient
+     * @param doctorId  filtre sur le médecin prescripteur
+     * @param hospitalId filtre sur l'hôpital d'origine
+     * @param isUrgent  filtre sur l'urgence
+     * @param from      date de prélèvement minimale (inclusif)
+     * @param to        date de prélèvement maximale (inclusif)
+     * @param search    recherche textuelle sur le code du bon
+     * @param principal principal Spring Security contenant le branchId
+     * @return page de {@link TestOrderResponseDto}
+     */
+    @GetMapping
+    @PreAuthorize("hasAuthority('view-test-orders')")
+    public ResponseEntity<ApiResponse<PageResponse<TestOrderResponseDto>>> findAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) TestOrderStatus status,
+            @RequestParam(required = false) UUID patientId,
+            @RequestParam(required = false) UUID doctorId,
+            @RequestParam(required = false) UUID hospitalId,
+            @RequestParam(required = false) Boolean isUrgent,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        TestOrderFilterDto filter = new TestOrderFilterDto();
+        filter.setStatus(status);
+        filter.setPatientId(patientId);
+        filter.setDoctorId(doctorId);
+        filter.setHospitalId(hospitalId);
+        filter.setIsUrgent(isUrgent);
+        filter.setFrom(from);
+        filter.setTo(to);
+        filter.setSearch(search);
+        return ResponseEntity.ok(ApiResponse.success(testOrderService.findAll(page, size, filter, principal.getBranchId())));
+    }
+
+    /**
+     * Retourne le détail d'un bon d'examen par son identifiant.
+     * L'isolation multi-tenant est assurée via le branchId du principal authentifié.
+     *
+     * @param id        identifiant UUID du bon
+     * @param principal principal Spring Security contenant le branchId
+     * @return le bon correspondant, ou 404 s'il n'existe pas ou n'appartient pas à la branche
+     */
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('view-test-orders')")
+    public ResponseEntity<ApiResponse<TestOrderResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(testOrderService.findById(id, principal.getBranchId())));
+    }
+
+    /**
+     * Crée un nouveau bon d'examen au statut PENDING pour la branche de l'utilisateur connecté.
+     *
+     * @param dto       données du bon à créer (patient, date de prélèvement, analyses, etc.)
+     * @param principal principal Spring Security contenant le branchId
+     * @return le bon créé avec le code HTTP 201
+     */
+    @PostMapping
+    @PreAuthorize("hasAuthority('create-test-orders')")
+    public ResponseEntity<ApiResponse<TestOrderResponseDto>> create(
+            @Valid @RequestBody TestOrderRequestDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        TestOrderResponseDto created = testOrderService.create(dto, principal.getBranchId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Bon d'examen créé", created));
+    }
+
+    /**
+     * Met à jour les informations d'un bon d'examen existant.
+     * Seuls les bons au statut PENDING peuvent être modifiés.
+     * L'isolation multi-tenant est assurée via le branchId du principal authentifié.
+     *
+     * @param id        identifiant UUID du bon à mettre à jour
+     * @param dto       nouvelles données
+     * @param principal principal Spring Security contenant le branchId
+     * @return le bon mis à jour
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('edit-test-orders')")
+    public ResponseEntity<ApiResponse<TestOrderResponseDto>> update(
+            @PathVariable UUID id,
+            @Valid @RequestBody TestOrderRequestDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success("Bon d'examen mis à jour", testOrderService.update(id, dto, principal.getBranchId())));
+    }
+
+    /**
+     * Supprime (soft delete) un bon d'examen non encore validé.
+     * L'isolation multi-tenant est assurée via le branchId du principal authentifié.
+     *
+     * @param id        identifiant UUID du bon à supprimer
+     * @param principal principal Spring Security contenant le branchId
+     * @return réponse vide 200 en cas de succès
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('delete-test-orders')")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        testOrderService.delete(id, principal.getBranchId());
+        return ResponseEntity.ok(ApiResponse.success("Bon d'examen supprimé", null));
+    }
+
+    /**
+     * Déclenche le workflow de validation du bon d'examen (passage au statut VALIDATED).
+     *
+     * <p>Ce endpoint orchestre : génération du code unique, création du compte-rendu DRAFT,
+     * journalisation dans LogReport et facturation selon le type de contrat.
+     *
+     * @param id        identifiant UUID du bon
+     * @param status    valeur attendue : {@code "VALIDATED"}
+     * @param principal principal Spring Security (fournit userId et branchId)
+     * @return le bon mis à jour avec son code généré
+     */
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('edit-test-orders')")
+    public ResponseEntity<ApiResponse<TestOrderResponseDto>> updateStatus(
+            @PathVariable UUID id,
+            @RequestParam String status,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success("Statut mis à jour",
+                testOrderService.updateStatus(id, status, principal.getId(), principal.getBranchId())));
+    }
+
+    /**
+     * Marque un bon d'examen comme livré (passage au statut DELIVERED).
+     *
+     * <p>Seuls les bons au statut VALIDATED peuvent être livrés. Positionne également
+     * {@code report.isDelivered = true} sur le compte-rendu associé.
+     *
+     * @param id identifiant UUID du bon à livrer
+     * @return le bon mis à jour
+     */
+    @PostMapping("/{id}/deliver")
+    @PreAuthorize("hasAuthority('deliver-reports')")
+    public ResponseEntity<ApiResponse<TestOrderResponseDto>> deliver(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success("Bon livré", testOrderService.markAsDelivered(id)));
+    }
+
+    /**
+     * Assigne un médecin pathologiste à un bon d'examen.
+     *
+     * <p>Positionne {@code attribuateDoctorId}, {@code assignedToUserId} et {@code assignmentDate}
+     * sur le bon. Aucun guard sur le statut — alignement avec le comportement Laravel.
+     *
+     * @param id        identifiant UUID du bon
+     * @param dto       corps de la requête contenant le {@code doctorId}
+     * @param principal principal Spring Security contenant le branchId
+     * @return le bon mis à jour avec le médecin assigné
+     */
+    @PostMapping("/{id}/images")
+    @PreAuthorize("hasAuthority('edit-test-orders')")
+    public ResponseEntity<ApiResponse<List<String>>> uploadImages(
+            @PathVariable UUID id,
+            @RequestParam("files_name") List<MultipartFile> files) {
+        return ResponseEntity.ok(ApiResponse.success(testOrderService.uploadImages(id, files)));
+    }
+
+    @GetMapping("/{id}/images")
+    @PreAuthorize("hasAuthority('view-test-orders')")
+    public ResponseEntity<ApiResponse<List<ImageDto>>> getImages(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(testOrderService.getImages(id)));
+    }
+
+    @DeleteMapping("/{id}/images/{index}")
+    @PreAuthorize("hasAuthority('edit-test-orders')")
+    public ResponseEntity<ApiResponse<Void>> deleteImage(
+            @PathVariable UUID id, @PathVariable int index) {
+        testOrderService.deleteImage(id, index);
+        return ResponseEntity.ok(ApiResponse.success("Image supprimée", null));
+    }
+
+    @PostMapping("/{id}/assign-doctor")
+    @PreAuthorize("hasAuthority('edit-test-orders')")
+    public ResponseEntity<ApiResponse<TestOrderResponseDto>> assignDoctor(
+            @PathVariable UUID id,
+            @Valid @RequestBody AssignDoctorRequestDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Médecin assigné",
+                testOrderService.assignDoctor(id, dto.doctorId(), principal.getBranchId())));
+    }
+}

@@ -1,0 +1,154 @@
+package com.labo.anapath.inventory;
+
+import com.labo.anapath.common.exception.ResourceNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class ArticleServiceTest {
+
+    @Mock ArticleRepository articleRepository;
+    @Mock SupplierRepository supplierRepository;
+    @Mock MovementRepository movementRepository;
+    @Mock InventoryMapper inventoryMapper;
+
+    ArticleServiceImpl service;
+
+    private final UUID BRANCH_ID  = UUID.randomUUID();
+    private final UUID ARTICLE_ID = UUID.randomUUID();
+
+    @BeforeEach
+    void setup() {
+        service = new ArticleServiceImpl(articleRepository, supplierRepository, movementRepository, inventoryMapper);
+    }
+
+    private Article buildArticle() {
+        Article a = new Article();
+        ReflectionTestUtils.setField(a, "id", ARTICLE_ID);
+        a.setName("Réactif HIV");
+        a.setQuantity(BigDecimal.ZERO);
+        return a;
+    }
+
+    @Test
+    @DisplayName("create - avec initialQuantity > 0 → article et mouvement IN créés")
+    void create_withInitialQuantity_shouldCreateArticleAndMovement() {
+        Article saved = buildArticle();
+        saved.setQuantity(new BigDecimal("10"));
+        when(articleRepository.save(any())).thenReturn(saved);
+        when(inventoryMapper.toArticleEntity(any())).thenReturn(new Article());
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
+                new ArticleResponseDto(ARTICLE_ID, "Réactif HIV", null,
+                        new BigDecimal("10"), BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+
+        ArticleRequestDto dto = new ArticleRequestDto();
+        dto.setName("Réactif HIV");
+        dto.setInitialQuantity(new BigDecimal("10"));
+
+        ArticleResponseDto result = service.create(dto, BRANCH_ID);
+
+        assertThat(result).isNotNull();
+        verify(movementRepository).save(any(Movement.class));
+    }
+
+    @Test
+    @DisplayName("create - sans initialQuantity → quantité 0, aucun mouvement créé")
+    void create_withoutInitialQuantity_shouldSetQuantityToZeroAndNoMovement() {
+        Article saved = buildArticle();
+        when(articleRepository.save(any())).thenReturn(saved);
+        when(inventoryMapper.toArticleEntity(any())).thenReturn(new Article());
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
+                new ArticleResponseDto(ARTICLE_ID, "Gants", null,
+                        BigDecimal.ZERO, BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+
+        ArticleRequestDto dto = new ArticleRequestDto();
+        dto.setName("Gants");
+
+        service.create(dto, BRANCH_ID);
+
+        verify(movementRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("update - ne modifie pas la quantité")
+    void update_shouldNotModifyQuantity() {
+        Article article = buildArticle();
+        article.setQuantity(new BigDecimal("50"));
+        when(articleRepository.findById(ARTICLE_ID)).thenReturn(Optional.of(article));
+        when(articleRepository.save(any())).thenReturn(article);
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
+                new ArticleResponseDto(ARTICLE_ID, "Updated", null,
+                        new BigDecimal("50"), BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+
+        ArticleRequestDto dto = new ArticleRequestDto();
+        dto.setName("Updated");
+        dto.setInitialQuantity(new BigDecimal("999"));
+
+        service.update(ARTICLE_ID, dto);
+
+        assertThat(article.getQuantity()).isEqualByComparingTo("50");
+    }
+
+    @Test
+    @DisplayName("findAll - retourne outOfStockCount et lowStockCount")
+    void findAll_shouldIncludeStockCounts() {
+        Article a = buildArticle();
+        Page<Article> page = new PageImpl<>(List.of(a));
+        when(articleRepository.findByBranchId(eq(BRANCH_ID), any(Pageable.class))).thenReturn(page);
+        when(articleRepository.countByBranchIdAndQuantity(BRANCH_ID, BigDecimal.ZERO)).thenReturn(3L);
+        when(articleRepository.countLowStock(BRANCH_ID)).thenReturn(2L);
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
+                new ArticleResponseDto(ARTICLE_ID, "Réactif", null,
+                        BigDecimal.ZERO, BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+
+        ArticlePageResponseDto result = service.findAll(0, 20, BRANCH_ID);
+
+        assertThat(result.outOfStockCount()).isEqualTo(3L);
+        assertThat(result.lowStockCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("findById - ID inconnu → ResourceNotFoundException")
+    void findById_unknownId_throws() {
+        when(articleRepository.findById(ARTICLE_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.findById(ARTICLE_ID))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("search - retourne liste filtrée")
+    void search_returnsMatchingResults() {
+        Article a = buildArticle();
+        when(articleRepository.findByBranchIdAndNameContainingIgnoreCase(BRANCH_ID, "réactif"))
+                .thenReturn(List.of(a));
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
+                new ArticleResponseDto(ARTICLE_ID, "Réactif HIV", null,
+                        BigDecimal.ZERO, BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+
+        List<ArticleResponseDto> result = service.search("réactif", BRANCH_ID);
+
+        assertThat(result).hasSize(1);
+    }
+}

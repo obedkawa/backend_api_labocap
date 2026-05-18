@@ -1,0 +1,30 @@
+package com.labo.anapath.client;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
+import lombok.Setter;
+
+/**
+ * DTO de requête pour la création ou la mise à jour d'un client institutionnel.
+ * <p>
+ * Le nom est le seul champ obligatoire. L'IFU (Identifiant Fiscal Unique)
+ * est optionnel mais doit être unique toutes agences confondues s'il est fourni.
+ * </p>
+ */
+@Getter
+@Setter
+public class ClientRequestDto {
+
+    /** Raison sociale ou nom du client (obligatoire). */
+    @NotBlank(message = "Le nom du client est obligatoire")
+    private String name;
+
+    /** Numéro IFU (Identifiant Fiscal Unique) du client — optionnel, mais unique globalement. */
+    private String ifu;
+
+    /** Adresse physique du client (optionnel). */
+    private String adress;
+
+    /** Coordonnées de contact : téléphone ou email (optionnel). */
+    private String contact;
+}
