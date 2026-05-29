@@ -3,6 +3,7 @@ package com.labo.anapath.user;
 import com.labo.anapath.common.dto.ApiResponse;
 import com.labo.anapath.common.dto.PageResponse;
 import com.labo.anapath.common.security.UserPrincipal;
+import com.labo.anapath.role.PermissionResponseDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -46,7 +48,7 @@ public class UserController {
      * @return page de {@link UserResponseDto}
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('manage-users')")
+    @PreAuthorize("hasAuthority('edit-users')")
     public ResponseEntity<ApiResponse<PageResponse<UserResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -58,13 +60,16 @@ public class UserController {
     /**
      * Retourne un utilisateur par son identifiant unique.
      *
-     * @param id identifiant UUID de l'utilisateur
+     * @param id        identifiant UUID de l'utilisateur
+     * @param principal principal de sécurité de l'utilisateur connecté
      * @return le DTO de l'utilisateur trouvé
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-users')")
-    public ResponseEntity<ApiResponse<UserResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(userService.findById(id)));
+    @PreAuthorize("hasAuthority('edit-users')")
+    public ResponseEntity<ApiResponse<UserResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(userService.findById(id, principal.getBranchId())));
     }
 
     /**
@@ -75,7 +80,7 @@ public class UserController {
      * @return le DTO de l'utilisateur créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-users')")
+    @PreAuthorize("hasAuthority('edit-users')")
     public ResponseEntity<ApiResponse<UserResponseDto>> create(
             @Valid @RequestBody UserRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -86,28 +91,33 @@ public class UserController {
     /**
      * Met à jour les informations d'un utilisateur existant.
      *
-     * @param id  identifiant UUID de l'utilisateur à modifier
-     * @param dto nouvelles données validées
+     * @param id        identifiant UUID de l'utilisateur à modifier
+     * @param dto       nouvelles données validées
+     * @param principal principal de sécurité fournissant le branchId
      * @return le DTO mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-users')")
+    @PreAuthorize("hasAuthority('edit-users')")
     public ResponseEntity<ApiResponse<UserResponseDto>> update(
             @PathVariable UUID id,
-            @Valid @RequestBody UserRequestDto dto) {
-        return ResponseEntity.ok(ApiResponse.success("Utilisateur mis à jour", userService.update(id, dto)));
+            @Valid @RequestBody UserRequestDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success("Utilisateur mis à jour", userService.update(id, dto, principal.getBranchId())));
     }
 
     /**
      * Supprime (soft-delete) un utilisateur par son identifiant.
      *
-     * @param id identifiant UUID de l'utilisateur à supprimer
+     * @param id        identifiant UUID de l'utilisateur à supprimer
+     * @param principal principal de sécurité fournissant le branchId
      * @return réponse vide avec message de confirmation
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-users')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        userService.delete(id);
+    @PreAuthorize("hasAuthority('edit-users')")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        userService.delete(id, principal.getBranchId());
         return ResponseEntity.ok(ApiResponse.success("Utilisateur supprimé", null));
     }
 
@@ -115,29 +125,68 @@ public class UserController {
      * Bascule le statut actif/inactif d'un utilisateur.
      * La désactivation déconnecte également l'utilisateur et désactive le 2FA.
      *
-     * @param id identifiant UUID de l'utilisateur
+     * @param id        identifiant UUID de l'utilisateur
+     * @param principal principal de sécurité fournissant le branchId
      * @return réponse vide avec message de confirmation
      */
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('manage-users')")
-    public ResponseEntity<ApiResponse<Void>> toggleStatus(@PathVariable UUID id) {
-        userService.toggleStatus(id);
+    @PreAuthorize("hasAuthority('edit-users')")
+    public ResponseEntity<ApiResponse<Void>> toggleStatus(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        userService.toggleStatus(id, principal.getBranchId());
         return ResponseEntity.ok(ApiResponse.success("Statut mis à jour", null));
     }
 
     /**
      * Met à jour le mot de passe d'un utilisateur après vérification de l'ancien.
      *
-     * @param id      identifiant UUID de l'utilisateur
-     * @param request objet contenant l'ancien et le nouveau mot de passe
+     * @param id        identifiant UUID de l'utilisateur
+     * @param request   objet contenant l'ancien et le nouveau mot de passe
+     * @param principal principal de sécurité fournissant le branchId
      * @return réponse vide avec message de confirmation
      */
     @PatchMapping("/{id}/password")
-    @PreAuthorize("hasAuthority('manage-users')")
+    @PreAuthorize("hasAuthority('edit-users')")
     public ResponseEntity<ApiResponse<Void>> updatePassword(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdatePasswordRequest request) {
-        userService.updatePassword(id, request);
+            @Valid @RequestBody UpdatePasswordRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        userService.updatePassword(id, request, principal.getBranchId());
         return ResponseEntity.ok(ApiResponse.success("Mot de passe mis à jour", null));
+    }
+
+    /**
+     * Retourne les permissions directement assignées à un utilisateur.
+     *
+     * @param id        identifiant UUID de l'utilisateur
+     * @param principal principal de sécurité fournissant le branchId
+     * @return liste des DTOs de permissions directes
+     */
+    @GetMapping("/{id}/permissions")
+    @PreAuthorize("hasAuthority('edit-users')")
+    public ResponseEntity<ApiResponse<List<PermissionResponseDto>>> getUserPermissions(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                userService.getUserPermissions(id, principal.getBranchId())));
+    }
+
+    /**
+     * Remplace toutes les permissions directes d'un utilisateur.
+     *
+     * @param id            identifiant UUID de l'utilisateur
+     * @param permissionIds liste des UUIDs de permissions à assigner
+     * @param principal     principal de sécurité fournissant le branchId
+     * @return réponse vide avec message de confirmation
+     */
+    @PutMapping("/{id}/permissions")
+    @PreAuthorize("hasAuthority('edit-users')")
+    public ResponseEntity<ApiResponse<Void>> setUserPermissions(
+            @PathVariable UUID id,
+            @RequestBody List<UUID> permissionIds,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        userService.setUserPermissions(id, permissionIds, principal.getBranchId());
+        return ResponseEntity.ok(ApiResponse.success("Permissions mises à jour", null));
     }
 }

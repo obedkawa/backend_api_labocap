@@ -24,7 +24,7 @@ public class SignalController {
     private final SignalService signalService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<PageResponse<SignalResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -34,7 +34,7 @@ public class SignalController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<SignalResponseDto>> create(
             @Valid @RequestBody SignalRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {

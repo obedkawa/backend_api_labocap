@@ -2,6 +2,7 @@ package com.labo.anapath.test;
 
 import com.labo.anapath.common.dto.PageResponse;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,6 +22,8 @@ public interface TypeOrderService {
      * @return page de DTOs de types de bons
      */
     PageResponse<TypeOrderResponseDto> findAll(int page, int size, UUID branchId);
+
+    List<TypeOrderResponseDto> findAll(UUID branchId);
 
     /**
      * Recherche un type de bon par son identifiant.

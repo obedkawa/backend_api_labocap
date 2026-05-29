@@ -59,8 +59,8 @@ public class Payment extends AuditableEntity {
     @Column(name = "payment_name", length = 50)
     private String paymentName;
 
-    /** Numéro de téléphone Mobile Money sans préfixe pays (stocké brut). */
-    @Column(name = "payment_number", length = 20)
+    /** Numéro de téléphone Mobile Money normalisé avec préfixe pays. */
+    @Column(name = "payment_number", columnDefinition = "TEXT")
     private String paymentNumber;
 
     /** Statut du paiement Sckaler : INITIATED, SUCCESS, FAILED, PENDING. */

@@ -144,7 +144,7 @@ class MobileMoneyServiceImplTest {
         verify(paymentRepository).save(paymentCaptor.capture());
         assertThat(paymentCaptor.getValue().getPaymentStatus()).isEqualTo("INITIATED");
         assertThat(paymentCaptor.getValue().getPaymentId()).isEqualTo("txn-xyz");
-        assertThat(paymentCaptor.getValue().getPaymentNumber()).isEqualTo("97123456"); // sans préfixe en base
+        assertThat(paymentCaptor.getValue().getPaymentNumber()).isEqualTo("22997123456"); // normalisé avec préfixe pays
     }
 
     @Test

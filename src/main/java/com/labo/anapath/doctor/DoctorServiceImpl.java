@@ -44,9 +44,12 @@ public class DoctorServiceImpl implements DoctorService {
 
     @Override
     @Transactional(readOnly = true)
-    public DoctorResponseDto findById(UUID id) {
+    public DoctorResponseDto findById(UUID id, UUID branchId) {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Médecin", id));
+        if (!doctor.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Médecin", id);
+        }
         return doctorMapper.toResponseDto(doctor);
     }
 

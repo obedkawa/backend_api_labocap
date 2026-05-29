@@ -22,6 +22,8 @@ public interface LabTestService {
      */
     PageResponse<LabTestResponseDto> findAll(int page, int size, UUID branchId);
 
+    List<LabTestResponseDto> findAll(UUID branchId);
+
     /**
      * Recherche une analyse par son identifiant.
      *

@@ -1,0 +1,37 @@
+# ─── Stage 1 : build ─────────────────────────────────────────────────────────
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
+
+WORKDIR /build
+
+# Téléchargement des dépendances en cache séparé
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Compilation
+COPY src/ src/
+RUN mvn package -DskipTests -B
+
+# ─── Stage 2 : runtime ───────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jre-alpine
+
+# Utilisateur non-root pour la sécurité
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+COPY --from=build /build/target/labo-anapath-api-1.0.0.jar app.jar
+
+RUN chown appuser:appgroup app.jar
+
+USER appuser
+
+EXPOSE 8080
+
+# Variables d'environnement attendues (à fournir au runtime)
+ENV DB_URL="" \
+    DB_USERNAME="" \
+    DB_PASSWORD="" \
+    JWT_SECRET="" \
+    SPRING_PROFILES_ACTIVE="prod"
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

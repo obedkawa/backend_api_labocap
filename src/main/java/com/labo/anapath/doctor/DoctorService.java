@@ -32,7 +32,7 @@ public interface DoctorService {
      * @return le DTO du médecin
      * @throws com.labo.anapath.common.exception.ResourceNotFoundException si le médecin n'existe pas
      */
-    DoctorResponseDto findById(UUID id);
+    DoctorResponseDto findById(UUID id, UUID branchId);
 
     /**
      * Crée un nouveau médecin rattaché à l'agence spécifiée.

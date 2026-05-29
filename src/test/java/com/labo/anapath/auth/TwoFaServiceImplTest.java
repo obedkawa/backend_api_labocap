@@ -5,7 +5,7 @@ import com.labo.anapath.common.exception.ResourceNotFoundException;
 import com.labo.anapath.user.User;
 import com.labo.anapath.user.UserRepository;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
-import com.warrenstrange.googleauth.ICredentials;
+import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,7 +62,7 @@ class TwoFaServiceImplTest {
         User user = buildUser();
         user.setEmail("test@labo.bj");
 
-        ICredentials credentials = mock(ICredentials.class);
+        GoogleAuthenticatorKey credentials = mock(GoogleAuthenticatorKey.class);
         when(credentials.getKey()).thenReturn("JBSWY3DPEHPK3PXP");
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(googleAuthenticator.createCredentials()).thenReturn(credentials);

@@ -1,5 +1,6 @@
 package com.labo.anapath.auth;
 
+import com.labo.anapath.common.exception.BusinessException;
 import com.labo.anapath.common.exception.InvalidCodeException;
 import com.labo.anapath.common.exception.UnauthorizedException;
 import com.labo.anapath.common.security.CustomUserDetailsService;
@@ -10,6 +11,7 @@ import com.labo.anapath.common.security.UserPrincipal;
 import com.labo.anapath.user.User;
 import com.labo.anapath.user.UserMapper;
 import com.labo.anapath.user.UserRepository;
+import com.labo.anapath.user.UserResponseDto;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +20,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -26,7 +29,12 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -55,6 +63,9 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final GoogleAuthenticator googleAuthenticator;
+    private final PasswordEncoder passwordEncoder;
+    private final TwoFaRepository twoFaRepository;
+    private final com.labo.anapath.common.email.EmailService emailService;
 
     /**
      * {@inheritDoc}
@@ -81,7 +92,9 @@ public class AuthServiceImpl implements AuthService {
             // If 2FA is enabled, return a short-lived temp token instead of full JWT
             if (user.isTwoFactorEnabled()) {
                 String tempToken = jwtTokenProvider.generateTempToken(userPrincipal.getId());
-                log.info("2FA challenge requis pour: {}", request.getEmail());
+                // Générer et envoyer l'OTP par email
+                sendAndStoreOtp(user);
+                log.info("2FA challenge requis pour: {}", maskEmail(request.getEmail()));
                 return LoginResponse.requires2fa(tempToken);
             }
 
@@ -93,14 +106,14 @@ public class AuthServiceImpl implements AuthService {
             user.setLastLoginDevice(getUserAgentHash());
             userRepository.save(user);
 
-            log.info("Connexion réussie pour: {}", request.getEmail());
+            log.info("Connexion réussie pour: {}", maskEmail(request.getEmail()));
             return new LoginResponse(accessToken, refreshToken, expiresIn, userMapper.toResponseDto(user));
         } catch (DisabledException ex) {
-            log.warn("Compte désactivé pour: {}", request.getEmail());
-            throw new UnauthorizedException("Compte désactivé.");
+            log.warn("Échec de connexion (compte désactivé) pour: {}", maskEmail(request.getEmail()));
+            throw new UnauthorizedException("Identifiants invalides.");
         } catch (BadCredentialsException ex) {
-            log.warn("Échec de connexion pour: {}", request.getEmail());
-            throw new UnauthorizedException("Email ou mot de passe incorrect.");
+            log.warn("Échec de connexion (mauvais identifiants) pour: {}", maskEmail(request.getEmail()));
+            throw new UnauthorizedException("Identifiants invalides.");
         }
     }
 
@@ -115,9 +128,8 @@ public class AuthServiceImpl implements AuthService {
      * @throws UnauthorizedException si le refresh token est invalide, révoqué ou si le compte est désactivé
      */
     @Override
-    @Transactional(readOnly = true)
-    public LoginResponse refresh(RefreshTokenRequest request) {
-        String token = request.getRefreshToken();
+    @Transactional
+    public LoginResponse refresh(String token) {
         if (!jwtTokenProvider.validateToken(token)) {
             throw new UnauthorizedException("Refresh token invalide ou expiré.");
         }
@@ -129,6 +141,8 @@ public class AuthServiceImpl implements AuthService {
         if (tokenBlacklistService.isBlacklisted(jti)) {
             throw new UnauthorizedException("Ce token a été révoqué.");
         }
+        Instant oldRefreshExpiry = jwtTokenProvider.extractExpiry(token);
+        tokenBlacklistService.blacklist(jti, oldRefreshExpiry);
         UUID userId = jwtTokenProvider.extractUserId(token);
         UserPrincipal userPrincipal = (UserPrincipal) customUserDetailsService.loadUserById(userId);
         String newAccessToken = jwtTokenProvider.generateToken(userPrincipal);
@@ -166,13 +180,123 @@ public class AuthServiceImpl implements AuthService {
             UUID userId = jwtTokenProvider.extractUserId(token);
             userRepository.findById(userId).ifPresent(user -> {
                 user.setConnect(false);
-                user.setTwoFactorEnabled(false);
                 userRepository.save(user);
             });
             log.info("Déconnexion — token blacklisté (jti={})", jti);
         } catch (Exception ex) {
             log.warn("Logout — erreur lors du traitement du token: {}", ex.getMessage());
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Récupère l'entité utilisateur depuis la base en filtrant par UUID et succursale
+     * pour garantir l'isolation multi-tenant, puis la convertit en DTO.
+     * </p>
+     *
+     * @throws UnauthorizedException si l'utilisateur est introuvable dans la succursale du JWT
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponseDto me(UUID userId, UUID branchId) {
+        User user = userRepository.findByIdAndBranchId(userId, branchId)
+                .orElseThrow(() -> new UnauthorizedException("Utilisateur non trouvé"));
+        return userMapper.toResponseDto(user);
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Génère un UUID aléatoire comme token de réinitialisation, le persiste avec
+     * une expiration à +1 heure, puis le retourne dans la réponse (pas de MailService).
+     * Si l'email est introuvable, retourne silencieusement un token fictif pour ne pas
+     * révéler l'existence du compte.
+     * </p>
+     */
+    @Override
+    @Transactional
+    public Map<String, String> forgotPassword(ForgotPasswordRequest request) {
+        String token = UUID.randomUUID().toString();
+        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+            user.setResetToken(token);
+            user.setResetTokenExpiresAt(LocalDateTime.now().plusHours(1));
+            userRepository.save(user);
+            log.info("Token de réinitialisation généré pour: {}", maskEmail(request.getEmail()));
+        });
+        Map<String, String> result = new HashMap<>();
+        result.put("token", token);
+        return result;
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Recherche l'utilisateur par son token de réinitialisation et vérifie que ce token
+     * n'est pas expiré. Valide la correspondance des deux mots de passe, encode le nouveau
+     * mot de passe en BCrypt, le persiste et efface les champs de token.
+     * </p>
+     *
+     * @throws UnauthorizedException si le token est invalide ou expiré
+     * @throws BusinessException     si les mots de passe ne correspondent pas
+     */
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        if (!request.getPassword().equals(request.getPasswordConfirmation())) {
+            throw new BusinessException("Les mots de passe ne correspondent pas");
+        }
+        User user = userRepository.findByResetToken(request.getToken())
+                .filter(u -> u.getResetTokenExpiresAt() != null
+                        && u.getResetTokenExpiresAt().isAfter(LocalDateTime.now()))
+                .orElseThrow(() -> new UnauthorizedException("Token de réinitialisation invalide ou expiré"));
+
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setResetToken(null);
+        user.setResetTokenExpiresAt(null);
+        userRepository.save(user);
+        log.info("Mot de passe réinitialisé pour userId={}", user.getId());
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Génère un code OTP à 6 chiffres, le stocke haché dans la table {@code two_fas}
+     * et l'envoie par email. Si l'email est introuvable, opération silencieuse.
+     * </p>
+     */
+    @Override
+    @Transactional
+    public void resend2FA(Resend2FARequest request) {
+        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+            sendAndStoreOtp(user);
+            log.info("OTP renvoyé par email à: {}", maskEmail(request.getEmail()));
+        });
+    }
+
+    private void sendAndStoreOtp(User user) {
+        SecureRandom secureRandom = new SecureRandom();
+        int otpInt = 100_000 + secureRandom.nextInt(900_000);
+        String otp = String.valueOf(otpInt);
+        String hashedOtp = passwordEncoder.encode(otp);
+
+        // Supprimer l'ancien code (bulk JPQL) puis insérer le nouveau
+        twoFaRepository.deleteByUserId(user.getId());
+        twoFaRepository.flush();
+        twoFaRepository.save(new TwoFa(user.getId(), user.getBranchId(), hashedOtp));
+
+        // Envoyer l'email (async)
+        emailService.sendOtp(user.getEmail(), user.getFirstname(), otp);
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) return "***";
+        String[] parts = email.split("@", 2);
+        String user = parts[0];
+        String masked = user.length() > 2
+                ? user.charAt(0) + "***" + user.charAt(user.length() - 1)
+                : "***";
+        return masked + "@" + parts[1];
     }
 
     /**
@@ -202,13 +326,13 @@ public class AuthServiceImpl implements AuthService {
     /**
      * {@inheritDoc}
      * <p>
-     * Vérifie la validité et le type du token temporaire, puis valide le code TOTP
-     * via Google Authenticator. En cas de succès, émet les tokens définitifs et
-     * met à jour l'état de connexion en base.
+     * Vérifie la validité et le type du token temporaire, puis valide le code OTP email
+     * depuis la table {@code two_fas}. Vérifie l'expiration (10 min) et la correspondance
+     * bcrypt. En cas de succès, émet les tokens définitifs et met à jour l'état de connexion.
      * </p>
      *
      * @throws UnauthorizedException si le token temporaire est invalide ou si l'utilisateur est introuvable
-     * @throws InvalidCodeException  si le code TOTP est incorrect ou non numérique
+     * @throws InvalidCodeException  si le code OTP est incorrect ou expiré
      */
     @Override
     @Transactional
@@ -224,21 +348,29 @@ public class AuthServiceImpl implements AuthService {
 
         UUID userId = jwtTokenProvider.extractUserId(tempToken);
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UnauthorizedException("Code TOTP invalide"));
+                .orElseThrow(() -> new UnauthorizedException("Utilisateur introuvable."));
 
-        if (user.getTwoFactorSecret() == null) {
-            throw new UnauthorizedException("Code TOTP invalide");
+        TwoFa twoFa = twoFaRepository.findByUserId(userId)
+                .orElseThrow(() -> new InvalidCodeException("Code invalide ou expiré."));
+
+        // Vérifier l'expiration (10 minutes)
+        if (twoFa.getCreatedAt().plusMinutes(10).isBefore(LocalDateTime.now())) {
+            twoFaRepository.deleteByUserId(userId);
+            throw new InvalidCodeException("Code expiré. Veuillez en demander un nouveau.");
         }
 
-        int code;
-        try {
-            code = Integer.parseInt(request.getCode().trim());
-        } catch (NumberFormatException e) {
-            throw new InvalidCodeException("Le code TOTP doit être numérique");
+        // Vérifier le code (comparaison bcrypt)
+        if (!passwordEncoder.matches(request.getCode().trim(), twoFa.getCode())) {
+            throw new InvalidCodeException("Code invalide.");
         }
 
-        if (!googleAuthenticator.authorize(user.getTwoFactorSecret(), code)) {
-            throw new InvalidCodeException("Code TOTP invalide");
+        // Supprimer le code utilisé
+        twoFaRepository.deleteByUserId(userId);
+
+        // Blacklister le tempToken
+        String tempJti = jwtTokenProvider.extractJti(tempToken);
+        if (tempJti != null) {
+            tokenBlacklistService.blacklist(tempJti, jwtTokenProvider.extractExpiry(tempToken));
         }
 
         UserPrincipal userPrincipal = (UserPrincipal) customUserDetailsService.loadUserById(userId);

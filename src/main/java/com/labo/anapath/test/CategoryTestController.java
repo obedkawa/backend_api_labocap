@@ -73,7 +73,7 @@ public class CategoryTestController {
      * @return le DTO de la catégorie créée avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<CategoryTestResponseDto>> create(
             @Valid @RequestBody CategoryTestRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -89,7 +89,7 @@ public class CategoryTestController {
      * @return le DTO mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<CategoryTestResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody CategoryTestRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Catégorie mise à jour", categoryTestService.update(id, dto)));
@@ -103,7 +103,7 @@ public class CategoryTestController {
      * @return réponse vide avec message de confirmation
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         categoryTestService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Catégorie supprimée", null));

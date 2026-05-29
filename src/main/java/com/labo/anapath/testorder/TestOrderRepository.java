@@ -1,6 +1,9 @@
 package com.labo.anapath.testorder;
 
+import com.labo.anapath.dashboard.DashboardDto;
+import com.labo.anapath.dashboard.DashboardProjection;
 import com.labo.anapath.patient.Patient;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -8,6 +11,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,10 +63,310 @@ public interface TestOrderRepository extends JpaRepository<TestOrder, UUID>, Jpa
      * @param pageable pagination (en pratique : page 0, taille 1 pour obtenir le dernier)
      * @return liste des bons correspondants
      */
-    @Query("SELECT t FROM TestOrder t WHERE t.branchId = :branchId AND t.code IS NOT NULL " +
-           "AND YEAR(t.createdAt) = :year ORDER BY t.code DESC")
+    // -------------------------------------------------------------------------
+    // Dashboard — comptages globaux
+    // -------------------------------------------------------------------------
+
+    long countByBranchId(UUID branchId);
+
+    @Query("SELECT COUNT(t) FROM TestOrder t WHERE t.branchId = :branchId AND t.createdAt >= :start AND t.createdAt <= :end")
+    long countByBranchIdAndCreatedAtBetween(@Param("branchId") UUID branchId,
+                                             @Param("start") LocalDateTime start,
+                                             @Param("end") LocalDateTime end);
+
+    @Query(value = """
+            SELECT COUNT(*) FROM test_orders t
+            WHERE t.branch_id = :branchId AND t.deleted_at IS NULL
+              AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.test_order_id = t.id AND r.deleted_at IS NULL)
+            """, nativeQuery = true)
+    long countByBranchIdAndReportIsNull(@Param("branchId") UUID branchId);
+
+    @Query("SELECT COUNT(t) FROM TestOrder t WHERE t.branchId = :branchId AND t.status = com.labo.anapath.testorder.TestOrderStatus.PENDING AND t.createdAt < :before")
+    long countByBranchIdAndStatusPendingAndCreatedAtBefore(@Param("branchId") UUID branchId,
+                                                            @Param("before") LocalDateTime before);
+
+    // -------------------------------------------------------------------------
+    // Dashboard — top examens
+    // -------------------------------------------------------------------------
+
+    @Query(value = """
+            SELECT dto.test_name as testName, COUNT(*) as totalDemandes
+            FROM detail_test_orders dto
+            JOIN test_orders t ON dto.test_order_id = t.id
+            WHERE t.branch_id = :branchId AND t.deleted_at IS NULL
+            GROUP BY dto.test_name
+            ORDER BY totalDemandes DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<DashboardProjection.TopExamen> getTopExamensByBranchId(@Param("branchId") UUID branchId,
+                                                          @Param("limit") int limit);
+
+    // -------------------------------------------------------------------------
+    // Dashboard — stats docteurs
+    // -------------------------------------------------------------------------
+
+    @Query(value = """
+            SELECT u.id::text as id, CONCAT(u.lastname, ' ', u.firstname) as doctor,
+                   COUNT(DISTINCT t.id) as assigne,
+                   COUNT(DISTINCT CASE WHEN r.status = 'VALIDATED' THEN t.id END) as traite
+            FROM test_orders t
+            JOIN users u ON u.id = t.attribuate_doctor_id
+            LEFT JOIN reports r ON r.test_order_id = t.id
+            WHERE t.branch_id = :branchId AND t.deleted_at IS NULL AND u.deleted_at IS NULL
+            GROUP BY u.id, u.lastname, u.firstname
+            ORDER BY assigne DESC
+            """, nativeQuery = true)
+    List<DashboardProjection.DoctorStat> getDoctorStatsByBranchId(@Param("branchId") UUID branchId);
+
+    // -------------------------------------------------------------------------
+    // Dashboard — stats mensuelles
+    // -------------------------------------------------------------------------
+
+    @Query(value = """
+            SELECT COUNT(DISTINCT dto.id)
+            FROM test_orders t
+            JOIN detail_test_orders dto ON dto.test_order_id = t.id
+            WHERE t.branch_id = :branchId AND EXTRACT(MONTH FROM t.created_at) = :month
+              AND EXTRACT(YEAR FROM t.created_at) = :year AND t.deleted_at IS NULL
+            """, nativeQuery = true)
+    long countByBranchIdAndMonth(@Param("branchId") UUID branchId,
+                                  @Param("month") int month,
+                                  @Param("year") int year);
+
+    @Query(value = """
+            SELECT COALESCE(SUM(lt.price), 0)
+            FROM test_orders t
+            JOIN detail_test_orders dto ON dto.test_order_id = t.id
+            JOIN lab_tests lt ON dto.lab_test_id = lt.id
+            WHERE t.branch_id = :branchId AND EXTRACT(MONTH FROM t.created_at) = :month
+              AND EXTRACT(YEAR FROM t.created_at) = :year AND t.deleted_at IS NULL
+            """, nativeQuery = true)
+    BigDecimal sumPriceByBranchIdAndMonth(@Param("branchId") UUID branchId,
+                                           @Param("month") int month,
+                                           @Param("year") int year);
+
+    @Query(value = """
+            SELECT COUNT(DISTINCT t.patient_id)
+            FROM test_orders t
+            WHERE t.branch_id = :branchId AND EXTRACT(MONTH FROM t.created_at) = :month
+              AND EXTRACT(YEAR FROM t.created_at) = :year AND t.deleted_at IS NULL
+            """, nativeQuery = true)
+    long countPatientsByBranchIdAndMonth(@Param("branchId") UUID branchId,
+                                          @Param("month") int month,
+                                          @Param("year") int year);
+
+    @Query(value = """
+            SELECT h.name as nom, COUNT(DISTINCT t.patient_id) as totalPatients
+            FROM test_orders t JOIN hospitals h ON t.hospital_id = h.id
+            WHERE t.branch_id = :branchId AND EXTRACT(MONTH FROM t.created_at) = :month
+              AND EXTRACT(YEAR FROM t.created_at) = :year AND t.deleted_at IS NULL AND h.deleted_at IS NULL
+            GROUP BY h.id, h.name ORDER BY totalPatients DESC
+            """, nativeQuery = true)
+    List<DashboardProjection.ByItem> countByHospitalAndMonth(@Param("branchId") UUID branchId,
+                                                       @Param("month") int month,
+                                                       @Param("year") int year);
+
+    @Query(value = """
+            SELECT d.name as nom, COUNT(DISTINCT t.patient_id) as totalPatients
+            FROM test_orders t JOIN doctors d ON t.doctor_id = d.id
+            WHERE t.branch_id = :branchId AND EXTRACT(MONTH FROM t.created_at) = :month
+              AND EXTRACT(YEAR FROM t.created_at) = :year AND t.deleted_at IS NULL AND d.deleted_at IS NULL
+            GROUP BY d.id, d.name HAVING COUNT(DISTINCT t.patient_id) > 5
+            ORDER BY totalPatients DESC
+            """, nativeQuery = true)
+    List<DashboardProjection.ByItem> countByDoctorAndMonth(@Param("branchId") UUID branchId,
+                                                     @Param("month") int month,
+                                                     @Param("year") int year);
+
+    @Query(value = """
+            SELECT tp.title as nom, COUNT(DISTINCT t.patient_id) as totalPatients
+            FROM test_orders t JOIN type_orders tp ON t.type_order_id = tp.id
+            WHERE t.branch_id = :branchId AND EXTRACT(MONTH FROM t.created_at) = :month
+              AND EXTRACT(YEAR FROM t.created_at) = :year AND t.deleted_at IS NULL
+            GROUP BY tp.id, tp.title ORDER BY totalPatients DESC
+            """, nativeQuery = true)
+    List<DashboardProjection.ByItem> countByTypeOrderAndMonth(@Param("branchId") UUID branchId,
+                                                        @Param("month") int month,
+                                                        @Param("year") int year);
+
+    // -------------------------------------------------------------------------
+    // Dashboard pathologiste — bons affectés via attribuate_doctor_id
+    // -------------------------------------------------------------------------
+
+    @Query(value = """
+            SELECT t.id::text as id, t.code as code, t.created_at::text as createdAt,
+                   p.firstname as patientFirstname, p.lastname as patientLastname,
+                   CASE WHEN r.status IN ('VALIDATED','DELIVERED') THEN 1 ELSE 0 END as reportStatus
+            FROM test_orders t
+            JOIN patients p ON t.patient_id = p.id
+            LEFT JOIN reports r ON r.test_order_id = t.id AND r.deleted_at IS NULL
+            WHERE t.attribuate_doctor_id = :userId
+              AND t.branch_id = :branchId AND t.deleted_at IS NULL
+            ORDER BY t.created_at DESC
+            """, nativeQuery = true)
+    List<DashboardProjection.DoctorOrder> findAllByAttribuateDoctorId(
+            @Param("userId") UUID userId,
+            @Param("branchId") UUID branchId);
+
+    @Query(value = """
+            SELECT t.id::text as id, t.code as code, t.created_at::text as createdAt,
+                   p.firstname as patientFirstname, p.lastname as patientLastname,
+                   CASE WHEN r.status IN ('VALIDATED','DELIVERED') THEN 1 ELSE 0 END as reportStatus
+            FROM test_orders t
+            JOIN patients p ON t.patient_id = p.id
+            LEFT JOIN reports r ON r.test_order_id = t.id AND r.deleted_at IS NULL
+            WHERE t.attribuate_doctor_id = :userId
+              AND t.branch_id = :branchId AND t.deleted_at IS NULL
+              AND DATE(r.updated_at) = :today
+            ORDER BY t.created_at DESC
+            """, nativeQuery = true)
+    List<DashboardProjection.DoctorOrder> findTodayByAttribuateDoctorId(
+            @Param("userId") UUID userId,
+            @Param("branchId") UUID branchId,
+            @Param("today") java.time.LocalDate today);
+
+    @Query(value = """
+            SELECT t.* FROM test_orders t
+            WHERE t.deleted_at IS NULL AND t.branch_id = :branchId
+              AND t.code IS NOT NULL
+              AND EXTRACT(YEAR FROM t.created_at) = :year
+            ORDER BY t.code DESC
+            LIMIT :#{#pageable.pageSize} OFFSET :#{#pageable.offset}
+            """, nativeQuery = true)
     List<TestOrder> findByBranchIdAndCodeNotNullAndYear(
             @Param("branchId") UUID branchId,
             @Param("year") int year,
             Pageable pageable);
+
+    // -------------------------------------------------------------------------
+    // Myspace — statistiques des bons assignés à un utilisateur
+    // -------------------------------------------------------------------------
+
+    /**
+     * Compte tous les bons d'examen assignés à un utilisateur pour une branche.
+     *
+     * @param userId   identifiant de l'utilisateur assigné
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @return nombre total de bons assignés
+     */
+    @Query("SELECT COUNT(t) FROM TestOrder t WHERE t.assignedToUserId = :userId AND t.branchId = :branchId")
+    long countByAssignedToUserIdAndBranchId(
+            @Param("userId") UUID userId,
+            @Param("branchId") UUID branchId);
+
+    /**
+     * Compte les bons d'examen assignés à un utilisateur pour une branche et un statut donnés.
+     *
+     * @param userId   identifiant de l'utilisateur assigné
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @param status   statut à filtrer
+     * @return nombre de bons correspondants
+     */
+    @Query("SELECT COUNT(t) FROM TestOrder t WHERE t.assignedToUserId = :userId AND t.branchId = :branchId AND t.status = :status")
+    long countByAssignedToUserIdAndBranchIdAndStatus(
+            @Param("userId") UUID userId,
+            @Param("branchId") UUID branchId,
+            @Param("status") TestOrderStatus status);
+
+    /**
+     * Compte les bons d'examen urgents assignés à un utilisateur pour une branche.
+     *
+     * @param userId   identifiant de l'utilisateur assigné
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @return nombre de bons urgents
+     */
+    @Query("SELECT COUNT(t) FROM TestOrder t WHERE t.assignedToUserId = :userId AND t.branchId = :branchId AND t.isUrgent = true")
+    long countUrgentByAssignedToUserIdAndBranchId(
+            @Param("userId") UUID userId,
+            @Param("branchId") UUID branchId);
+
+    /**
+     * Compte les bons d'examen en retard (PENDING assignés il y a plus de 48 h).
+     *
+     * @param userId          identifiant de l'utilisateur assigné
+     * @param branchId        identifiant de la branche (isolation multi-tenant)
+     * @param cutoff          date limite — les bons dont {@code assignmentDate} est antérieure
+     *                        à cette valeur sont considérés en retard
+     * @return nombre de bons en retard
+     */
+    @Query("SELECT COUNT(t) FROM TestOrder t WHERE t.assignedToUserId = :userId AND t.branchId = :branchId " +
+           "AND t.status = :pendingStatus " +
+           "AND t.assignmentDate IS NOT NULL AND t.assignmentDate < :cutoff")
+    long countLateByAssignedToUserIdAndBranchId(
+            @Param("userId") UUID userId,
+            @Param("branchId") UUID branchId,
+            @Param("pendingStatus") TestOrderStatus pendingStatus,
+            @Param("cutoff") LocalDateTime cutoff);
+
+    // -------------------------------------------------------------------------
+    // Myspace — liste paginée des bons assignés à un utilisateur
+    // -------------------------------------------------------------------------
+
+    /**
+     * Retourne la page de bons d'examen assignés à un utilisateur, avec filtres optionnels
+     * sur le statut et une recherche textuelle (code du bon ou nom du patient).
+     *
+     * @param userId   identifiant de l'utilisateur assigné
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @param status   statut à filtrer (peut être null pour tous les statuts)
+     * @param search   motif de recherche insensible à la casse (peut être null)
+     * @param pageable paramètres de pagination
+     * @return page de bons correspondants
+     */
+    @Query(value = """
+            SELECT t.* FROM test_orders t
+            JOIN patients pat ON pat.id = t.patient_id AND pat.deleted_at IS NULL
+            WHERE t.deleted_at IS NULL
+              AND t.assigned_to_user_id = :userId
+              AND t.branch_id = :branchId
+              AND (:status IS NULL OR t.status::text = CAST(:status AS text))
+              AND (:search IS NULL OR (
+                    lower(coalesce(t.code,         '')) LIKE lower('%' || CAST(:search AS text) || '%')
+                 OR lower(coalesce(pat.firstname,  '')) LIKE lower('%' || CAST(:search AS text) || '%')
+                 OR lower(coalesce(pat.lastname,   '')) LIKE lower('%' || CAST(:search AS text) || '%')
+              ))
+            ORDER BY t.created_at DESC
+            """,
+            countQuery = """
+            SELECT COUNT(*) FROM test_orders t
+            JOIN patients pat ON pat.id = t.patient_id AND pat.deleted_at IS NULL
+            WHERE t.deleted_at IS NULL
+              AND t.assigned_to_user_id = :userId
+              AND t.branch_id = :branchId
+              AND (:status IS NULL OR t.status::text = CAST(:status AS text))
+              AND (:search IS NULL OR (
+                    lower(coalesce(t.code,         '')) LIKE lower('%' || CAST(:search AS text) || '%')
+                 OR lower(coalesce(pat.firstname,  '')) LIKE lower('%' || CAST(:search AS text) || '%')
+                 OR lower(coalesce(pat.lastname,   '')) LIKE lower('%' || CAST(:search AS text) || '%')
+              ))
+            """,
+            nativeQuery = true)
+    Page<TestOrder> findMyspaceOrders(
+            @Param("userId") UUID userId,
+            @Param("branchId") UUID branchId,
+            @Param("status") String status,
+            @Param("search") String search,
+            Pageable pageable);
+
+    // -------------------------------------------------------------------------
+    // Immunohistochimie — comptage des bons en attente (rapport DRAFT ou inexistant)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Compte les bons d'examen immuno de la branche dont le rapport associé
+     * est en statut {@code DRAFT} ou n'existe pas encore.
+     *
+     * @param branchId identifiant de la branche
+     * @param typeIds  liste des UUID des types immuno
+     * @return nombre de bons immuno en attente
+     */
+    @Query("""
+            SELECT COUNT(t) FROM TestOrder t
+            LEFT JOIN com.labo.anapath.report.Report r ON r.testOrder.id = t.id
+            WHERE t.branchId = :branchId
+              AND t.typeOrder.id IN :typeIds
+              AND (r.status = com.labo.anapath.report.ReportStatus.DRAFT OR r IS NULL)
+            """)
+    long countImmunoPending(@Param("branchId") UUID branchId,
+                            @Param("typeIds") List<UUID> typeIds);
 }

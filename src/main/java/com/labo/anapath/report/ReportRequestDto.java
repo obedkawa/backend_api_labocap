@@ -1,5 +1,6 @@
 package com.labo.anapath.report;
 
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -18,16 +19,23 @@ public class ReportRequestDto {
     private UUID testOrderId;
 
     private UUID titleId;
+    @Size(max = 50000)
     private String content;
+    @Size(max = 50000)
     private String contentMicro;
+    @Size(max = 50000)
     private String comment;
+    @Size(max = 50000)
     private String commentSup;
+    @Size(max = 50000)
     private String descriptionSupplementaire;
+    @Size(max = 50000)
     private String descriptionSupplementaireMicro;
     private UUID reviewedById;
     private UUID signatory1Id;
     private UUID signatory2Id;
     private UUID signatory3Id;
+    @Size(max = 200)
     private String receiverName;
 
     /** "VALIDATED" pour valider ; "DRAFT" (ou null) pour brouillon. */

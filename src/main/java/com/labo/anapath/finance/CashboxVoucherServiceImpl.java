@@ -37,8 +37,12 @@ public class CashboxVoucherServiceImpl implements CashboxVoucherService {
 
     @Override
     @Transactional(readOnly = true)
-    public CashboxVoucherResponseDto findById(UUID id) {
-        return toDto(findVoucher(id));
+    public CashboxVoucherResponseDto findById(UUID id, UUID branchId) {
+        CashboxVoucher voucher = findVoucher(id);
+        if (!voucher.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Bon de caisse", id);
+        }
+        return toDto(voucher);
     }
 
     @Override

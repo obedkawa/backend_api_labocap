@@ -2,12 +2,14 @@ package com.labo.anapath.inventory;
 
 import com.labo.anapath.common.dto.PageResponse;
 import com.labo.anapath.common.exception.ResourceNotFoundException;
+import com.labo.anapath.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,6 +20,7 @@ public class ArticleServiceImpl implements ArticleService {
     private final ArticleRepository articleRepository;
     private final SupplierRepository supplierRepository;
     private final MovementRepository movementRepository;
+    private final UserRepository userRepository;
     private final InventoryMapper inventoryMapper;
 
     @Override
@@ -41,9 +44,12 @@ public class ArticleServiceImpl implements ArticleService {
 
     @Override
     @Transactional
-    public ArticleResponseDto create(ArticleRequestDto dto, UUID branchId) {
+    public ArticleResponseDto create(ArticleRequestDto dto, UUID branchId, UUID userId) {
         Article article = inventoryMapper.toArticleEntity(dto);
         article.setBranchId(branchId);
+        article.setDescription(dto.getDescription());
+        article.setLotNumber(dto.getLotNumber());
+        article.setExpirationDate(dto.getExpirationDate());
         if (dto.getMinimumStock() != null) {
             article.setMinimumStock(dto.getMinimumStock());
         }
@@ -62,6 +68,10 @@ public class ArticleServiceImpl implements ArticleService {
             movement.setType(MovementType.IN);
             movement.setQuantity(initialQty);
             movement.setNotes("Stock initial");
+            movement.setMovementDate(LocalDate.now());
+            if (userId != null) {
+                userRepository.findById(userId).ifPresent(movement::setUser);
+            }
             movementRepository.save(movement);
         }
         return inventoryMapper.toArticleResponseDto(saved);
@@ -81,7 +91,10 @@ public class ArticleServiceImpl implements ArticleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Article", id));
         article.setName(dto.getName());
         article.setCode(dto.getCode());
+        article.setDescription(dto.getDescription());
         article.setUnit(dto.getUnit());
+        article.setLotNumber(dto.getLotNumber());
+        article.setExpirationDate(dto.getExpirationDate());
         if (dto.getPurchasePrice() != null) article.setPurchasePrice(dto.getPurchasePrice());
         if (dto.getMinimumStock() != null) article.setMinimumStock(dto.getMinimumStock());
         if (dto.getSupplierId() != null) {

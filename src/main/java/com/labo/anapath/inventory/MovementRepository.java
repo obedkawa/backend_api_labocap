@@ -3,6 +3,8 @@ package com.labo.anapath.inventory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
@@ -21,4 +23,10 @@ public interface MovementRepository extends JpaRepository<Movement, UUID> {
      * @return page de mouvements
      */
     Page<Movement> findByBranchId(UUID branchId, Pageable pageable);
+
+    @Query("SELECT m FROM Movement m WHERE m.branchId = :branchId AND m.article.id = :articleId")
+    Page<Movement> findByBranchIdAndArticleId(
+            @Param("branchId") UUID branchId,
+            @Param("articleId") UUID articleId,
+            Pageable pageable);
 }

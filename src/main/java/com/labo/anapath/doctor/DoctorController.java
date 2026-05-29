@@ -73,13 +73,16 @@ public class DoctorController {
     /**
      * Retourne un médecin par son identifiant unique.
      *
-     * @param id identifiant UUID du médecin
+     * @param id        identifiant UUID du médecin
+     * @param principal principal de l'utilisateur authentifié
      * @return le DTO du médecin trouvé
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('view-doctors')")
-    public ResponseEntity<ApiResponse<DoctorResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(doctorService.findById(id)));
+    public ResponseEntity<ApiResponse<DoctorResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(doctorService.findById(id, principal.getBranchId())));
     }
 
     /**
@@ -90,7 +93,7 @@ public class DoctorController {
      * @return le DTO du médecin créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-doctors')")
+    @PreAuthorize("hasAuthority('edit-doctors')")
     public ResponseEntity<ApiResponse<DoctorResponseDto>> create(
             @Valid @RequestBody DoctorRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -106,7 +109,7 @@ public class DoctorController {
      * @return le DTO du médecin mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-doctors')")
+    @PreAuthorize("hasAuthority('edit-doctors')")
     public ResponseEntity<ApiResponse<DoctorResponseDto>> update(
             @PathVariable UUID id,
             @Valid @RequestBody DoctorRequestDto dto) {
@@ -120,7 +123,7 @@ public class DoctorController {
      * @return réponse vide confirmant la suppression
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-doctors')")
+    @PreAuthorize("hasAuthority('edit-doctors')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         doctorService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Médecin supprimé", null));

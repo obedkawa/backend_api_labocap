@@ -2,6 +2,7 @@ package com.labo.anapath.testorder;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record AssignmentResponseDto(
@@ -12,6 +13,7 @@ public record AssignmentResponseDto(
         LocalDate date,
         String note,
         int nbrDetails,
+        List<String> detailCodes,
         UUID branchId,
         LocalDateTime createdAt
 ) {}

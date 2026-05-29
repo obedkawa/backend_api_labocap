@@ -48,7 +48,7 @@ public class TicketController {
      * @return page de tickets
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<PageResponse<TicketResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -63,7 +63,7 @@ public class TicketController {
      * @return le ticket correspondant
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<TicketResponseDto>> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(ticketService.findById(id)));
     }
@@ -78,7 +78,7 @@ public class TicketController {
      * @return le ticket créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<TicketResponseDto>> create(
             @Valid @RequestBody TicketRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -94,7 +94,7 @@ public class TicketController {
      * @return le ticket mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('edit-tickets')")
     public ResponseEntity<ApiResponse<TicketResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody TicketRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Ticket mis à jour", ticketService.update(id, dto)));
@@ -109,7 +109,7 @@ public class TicketController {
      * @return le ticket avec le statut mis à jour
      */
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('manage-support')")
+    @PreAuthorize("hasAuthority('edit-tickets')")
     public ResponseEntity<ApiResponse<TicketResponseDto>> updateStatus(
             @PathVariable UUID id,
             @RequestParam TicketStatus status) {
@@ -123,14 +123,14 @@ public class TicketController {
      * @return réponse vide confirmant la suppression
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-support')")
+    @PreAuthorize("hasAuthority('edit-tickets')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         ticketService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Ticket supprimé", null));
     }
 
     @PostMapping("/{id}/comments")
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<TicketCommentResponseDto>> addComment(
             @PathVariable UUID id,
             @Valid @RequestBody TicketCommentRequestDto dto,
@@ -141,7 +141,7 @@ public class TicketController {
     }
 
     @GetMapping("/{id}/comments")
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<List<TicketCommentResponseDto>>> getComments(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(ticketCommentService.findByTicketId(id)));
     }

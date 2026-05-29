@@ -31,6 +31,16 @@ public interface DoctorRepository extends JpaRepository<Doctor, UUID> {
     Page<Doctor> findByBranchId(UUID branchId, Pageable pageable);
 
     /**
+     * Recherche un médecin par son identifiant et son agence.
+     * Assure l'isolation multi-tenant.
+     *
+     * @param id       identifiant UUID du médecin
+     * @param branchId identifiant de l'agence
+     * @return le médecin s'il appartient à l'agence, sinon vide
+     */
+    java.util.Optional<Doctor> findByIdAndBranchId(UUID id, UUID branchId);
+
+    /**
      * Vérifie qu'aucun médecin de la même agence n'a déjà ce nom.
      *
      * @param name     nom à vérifier (insensible à la casse)

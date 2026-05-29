@@ -2,6 +2,7 @@ package com.labo.anapath.setting;
 
 import com.labo.anapath.common.dto.PageResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -38,6 +39,15 @@ public interface SettingService {
      * @return le paramètre sauvegardé
      */
     SettingResponseDto upsert(SettingRequestDto dto, UUID branchId);
+
+    /**
+     * Crée ou met à jour plusieurs paramètres en une seule opération (bulk upsert).
+     * Chaque élément de la liste est traité comme un upsert individuel.
+     *
+     * @param settings liste de paramètres (clé + valeur) à sauvegarder
+     * @param branchId identifiant de la filiale
+     */
+    void bulkUpsert(List<SettingRequestDto> settings, UUID branchId);
 
     /**
      * Supprime (logiquement) un paramètre.

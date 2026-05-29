@@ -51,6 +51,9 @@ public class TestOrderSpecification {
             if (filter.getDoctorId() != null) {
                 predicates.add(cb.equal(root.get("doctor").get("id"), filter.getDoctorId()));
             }
+            if (filter.getAttribuateDoctorId() != null) {
+                predicates.add(cb.equal(root.get("attribuateDoctorId"), filter.getAttribuateDoctorId()));
+            }
             if (filter.getHospitalId() != null) {
                 predicates.add(cb.equal(root.get("hospital").get("id"), filter.getHospitalId()));
             }
@@ -68,8 +71,32 @@ public class TestOrderSpecification {
                 Predicate codeMatch = cb.like(cb.lower(cb.coalesce(root.get("code"), "")), pattern);
                 predicates.add(cb.or(codeMatch));
             }
+            if (filter.getContratId() != null) {
+                predicates.add(cb.equal(root.get("contrat").get("id"), filter.getContratId()));
+            }
+            if (filter.getTypeOrderId() != null) {
+                predicates.add(cb.equal(root.get("typeOrder").get("id"), filter.getTypeOrderId()));
+            }
 
             return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    /**
+     * Construit une {@link Specification} restreignant aux bons d'examen dont
+     * le {@code typeOrder.id} est dans la liste fournie.
+     *
+     * <p>Si la liste est {@code null} ou vide, ne contraint pas la requête.</p>
+     *
+     * @param typeIds liste d'identifiants de types de bons
+     * @return la spécification (toujours vraie si la liste est vide)
+     */
+    public static Specification<TestOrder> typeOrderIdIn(List<UUID> typeIds) {
+        return (root, query, cb) -> {
+            if (typeIds == null || typeIds.isEmpty()) {
+                return cb.conjunction(); // pas de filtre
+            }
+            return root.get("typeOrder").get("id").in(typeIds);
         };
     }
 }

@@ -28,7 +28,7 @@ public class DocumentationCategoryController {
     private final DocumentationCategoryService documentationCategoryService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-documentation')")
+    @PreAuthorize("hasAuthority('view-documentation-categories')")
     public ResponseEntity<ApiResponse<List<DocumentationCategoryResponseDto>>> findAll(
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success(
@@ -36,13 +36,13 @@ public class DocumentationCategoryController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-documentation')")
+    @PreAuthorize("hasAuthority('view-documentation-categories')")
     public ResponseEntity<ApiResponse<DocumentationCategoryResponseDto>> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(documentationCategoryService.findById(id)));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-documentation')")
+    @PreAuthorize("hasAuthority('edit-documentation-categories')")
     public ResponseEntity<ApiResponse<DocumentationCategoryResponseDto>> create(
             @Valid @RequestBody DocumentationCategoryRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -52,7 +52,7 @@ public class DocumentationCategoryController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-documentation')")
+    @PreAuthorize("hasAuthority('edit-documentation-categories')")
     public ResponseEntity<ApiResponse<DocumentationCategoryResponseDto>> update(
             @PathVariable UUID id,
             @Valid @RequestBody DocumentationCategoryRequestDto dto) {
@@ -61,7 +61,7 @@ public class DocumentationCategoryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-documentation')")
+    @PreAuthorize("hasAuthority('edit-documentation-categories')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         documentationCategoryService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Catégorie supprimée", null));

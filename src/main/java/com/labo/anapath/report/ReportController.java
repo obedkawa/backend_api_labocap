@@ -63,9 +63,11 @@ public class ReportController {
             @RequestParam(required = false) Integer month,
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) UUID doctorId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success(
-                reportService.findAll(page, size, principal.getBranchId(), month, year, doctorId)));
+                reportService.findAll(page, size, principal.getBranchId(), month, year, doctorId, status, search)));
     }
 
     @GetMapping("/suivi")
@@ -78,10 +80,80 @@ public class ReportController {
                 reportService.getSuivi(principal.getBranchId(), month, year)));
     }
 
+    @GetMapping("/suivi/list")
+    @PreAuthorize("hasAuthority('view-reports')")
+    public ResponseEntity<ApiResponse<PageResponse<ReportSuiviRowDto>>> getSuiviList(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String typeOrderId,
+            @RequestParam(required = false) String dateBegin,
+            @RequestParam(required = false) String dateEnd,
+            @RequestParam(required = false) Boolean isUrgent,
+            @RequestParam(required = false) Integer status,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                reportService.getSuiviList(
+                        principal.getBranchId(), page, size,
+                        search, typeOrderId, dateBegin, dateEnd,
+                        isUrgent, status)));
+    }
+
+    @GetMapping("/search-global")
+    @PreAuthorize("hasAuthority('view-reports')")
+    public ResponseEntity<ApiResponse<PageResponse<ReportGlobalSearchRowDto>>> globalSearch(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) java.util.List<String> typeOrderIds,
+            @RequestParam(required = false) java.util.List<String> contratIds,
+            @RequestParam(required = false) java.util.List<String> patientIds,
+            @RequestParam(required = false) java.util.List<String> doctorIds,
+            @RequestParam(required = false) java.util.List<String> hospitalIds,
+            @RequestParam(required = false) String referenceHospital,
+            @RequestParam(required = false) String dateBegin,
+            @RequestParam(required = false) String dateEnd,
+            @RequestParam(required = false) String content,
+            @RequestParam(required = false) Boolean isUrgent,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                reportService.globalSearch(
+                        principal.getBranchId(), page, size,
+                        typeOrderIds, contratIds, patientIds, doctorIds, hospitalIds,
+                        referenceHospital, dateBegin, dateEnd, content, isUrgent)));
+    }
+
+    @GetMapping("/list")
+    @PreAuthorize("hasAuthority('view-reports')")
+    public ResponseEntity<ApiResponse<PageResponse<ReportListDto>>> getList(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String dateBegin,
+            @RequestParam(required = false) String dateEnd,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                reportService.getList(principal.getBranchId(), page, size,
+                        search, status, dateBegin, dateEnd)));
+    }
+
+    @GetMapping("/performance-stats")
+    @PreAuthorize("hasAuthority('view-reports')")
+    public ResponseEntity<ApiResponse<ReportPerformanceDto>> getPerformanceStats(
+            @RequestParam(required = false) String doctorId,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                reportService.getPerformanceStats(principal.getBranchId(), doctorId, month, year)));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('view-reports')")
-    public ResponseEntity<ApiResponse<ReportDetailDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(reportService.findDetailById(id)));
+    public ResponseEntity<ApiResponse<ReportDetailDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(reportService.findDetailById(id, principal.getBranchId())));
     }
 
     @PostMapping

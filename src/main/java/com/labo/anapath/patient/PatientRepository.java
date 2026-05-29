@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -51,6 +52,16 @@ public interface PatientRepository extends JpaRepository<Patient, UUID>, JpaSpec
                                                Pageable pageable);
 
     /**
+     * Recherche un patient par son identifiant et sa branche.
+     * Assure l'isolation multi-tenant : un patient ne peut être accédé que par sa branche.
+     *
+     * @param id       identifiant UUID du patient
+     * @param branchId identifiant de l'agence
+     * @return le patient s'il appartient à l'agence, sinon vide
+     */
+    java.util.Optional<Patient> findByIdAndBranchId(UUID id, UUID branchId);
+
+    /**
      * Vérifie qu'aucun patient de la même agence n'utilise déjà ce numéro de téléphone.
      *
      * @param telephone1 numéro de téléphone principal à vérifier
@@ -78,4 +89,12 @@ public interface PatientRepository extends JpaRepository<Patient, UUID>, JpaSpec
      * @return {@code true} si un autre patient de l'agence porte déjà ce code
      */
     boolean existsByCodeAndBranchIdAndIdNot(String code, UUID branchId, UUID id);
+
+    // Dashboard KPIs
+    long countByBranchId(UUID branchId);
+
+    @Query("SELECT COUNT(p) FROM Patient p WHERE p.branchId = :branchId AND p.createdAt >= :start AND p.createdAt <= :end")
+    long countByBranchIdAndCreatedAtBetween(@Param("branchId") UUID branchId,
+                                             @Param("start") LocalDateTime start,
+                                             @Param("end") LocalDateTime end);
 }

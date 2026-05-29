@@ -58,8 +58,10 @@ public class CashboxDailyController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('view-cashbox-dailies')")
-    public ResponseEntity<ApiResponse<CashboxDailyResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(cashboxDailyService.findById(id)));
+    public ResponseEntity<ApiResponse<CashboxDailyResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(cashboxDailyService.findById(id, principal.getBranchId())));
     }
 
     @PutMapping("/{id}")

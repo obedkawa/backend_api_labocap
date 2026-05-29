@@ -28,6 +28,16 @@ public interface HospitalRepository extends JpaRepository<Hospital, UUID> {
     Page<Hospital> findByBranchId(UUID branchId, Pageable pageable);
 
     /**
+     * Recherche un hôpital par son identifiant et son agence.
+     * Assure l'isolation multi-tenant.
+     *
+     * @param id       identifiant UUID de l'hôpital
+     * @param branchId identifiant de l'agence
+     * @return l'hôpital s'il appartient à l'agence, sinon vide
+     */
+    java.util.Optional<Hospital> findByIdAndBranchId(UUID id, UUID branchId);
+
+    /**
      * Vérifie qu'aucun hôpital de la même agence n'a déjà ce nom.
      *
      * @param name     nom à vérifier (insensible à la casse)

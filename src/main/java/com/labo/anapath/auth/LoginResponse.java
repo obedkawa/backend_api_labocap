@@ -1,5 +1,6 @@
 package com.labo.anapath.auth;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.labo.anapath.user.UserResponseDto;
 
 /**
@@ -7,17 +8,15 @@ import com.labo.anapath.user.UserResponseDto;
  * <p>
  * Représente deux états distincts selon que la 2FA est activée ou non :
  * <ul>
- *   <li><b>Connexion directe (2FA désactivée)</b> : {@code accessToken}, {@code refreshToken},
- *       {@code tokenType} ("Bearer"), {@code expiresIn} et {@code user} sont renseignés ;
- *       {@code requires2fa} et {@code tempToken} sont {@code null}.</li>
+ *   <li><b>Connexion directe (2FA désactivée)</b> : {@code expiresIn} et {@code user} sont
+ *       renseignés dans le JSON ; les tokens sont transmis via des cookies HttpOnly (non sérialisés).</li>
  *   <li><b>Challenge 2FA requis</b> : seuls {@code requires2fa = true} et {@code tempToken}
  *       sont renseignés ; les autres champs sont {@code null}.</li>
  * </ul>
  * </p>
  *
- * @param accessToken  token d'accès JWT (null si challenge 2FA)
- * @param refreshToken token de rafraîchissement JWT (null si challenge 2FA)
- * @param tokenType    type de token, toujours "Bearer" (null si challenge 2FA)
+ * @param accessToken  token d'accès JWT — non sérialisé en JSON, transmis via cookie HttpOnly
+ * @param refreshToken token de rafraîchissement JWT — non sérialisé en JSON, transmis via cookie HttpOnly
  * @param expiresIn    durée de validité du token d'accès en secondes (null si challenge 2FA)
  * @param user         informations de l'utilisateur connecté (null si challenge 2FA)
  * @param requires2fa  {@code true} si un challenge TOTP est requis pour finaliser la connexion
@@ -26,12 +25,21 @@ import com.labo.anapath.user.UserResponseDto;
 public record LoginResponse(
         String accessToken,
         String refreshToken,
-        String tokenType,
         Long expiresIn,
         UserResponseDto user,
         Boolean requires2fa,
         String tempToken
 ) {
+    /** Masqué du JSON — transmis via cookie HttpOnly côté {@link com.labo.anapath.auth.AuthController}. */
+    @JsonIgnore
+    @Override
+    public String accessToken() { return accessToken; }
+
+    /** Masqué du JSON — transmis via cookie HttpOnly côté {@link com.labo.anapath.auth.AuthController}. */
+    @JsonIgnore
+    @Override
+    public String refreshToken() { return refreshToken; }
+
     /**
      * Constructeur de commodité pour une connexion réussie sans 2FA.
      *
@@ -41,7 +49,7 @@ public record LoginResponse(
      * @param user         informations de l'utilisateur connecté
      */
     public LoginResponse(String accessToken, String refreshToken, Long expiresIn, UserResponseDto user) {
-        this(accessToken, refreshToken, "Bearer", expiresIn, user, null, null);
+        this(accessToken, refreshToken, expiresIn, user, null, null);
     }
 
     /**
@@ -51,6 +59,6 @@ public record LoginResponse(
      * @return réponse avec {@code requires2fa = true} et uniquement le token temporaire
      */
     public static LoginResponse requires2fa(String tempToken) {
-        return new LoginResponse(null, null, null, null, null, true, tempToken);
+        return new LoginResponse(null, null, null, null, true, tempToken);
     }
 }

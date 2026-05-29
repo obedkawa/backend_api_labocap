@@ -1,6 +1,7 @@
 package com.labo.anapath.inventory;
 
 import com.labo.anapath.common.audit.AuditableEntity;
+import com.labo.anapath.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,6 +15,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * Entité représentant un mouvement de stock (entrée, sortie ou ajustement)
@@ -43,4 +45,11 @@ public class Movement extends AuditableEntity {
 
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    @Column(name = "movement_date")
+    private LocalDate movementDate;
 }

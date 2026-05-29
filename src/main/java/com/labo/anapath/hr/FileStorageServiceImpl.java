@@ -15,7 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
 
-@Service
+@Service("hrFileStorageServiceImpl")
 @Slf4j
 public class FileStorageServiceImpl implements FileStorageService {
 
@@ -40,8 +40,12 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     public Resource load(String filePath) {
         try {
-            Path path = Paths.get(basePath).resolve(filePath);
-            return new UrlResource(path.toUri());
+            Path base = Paths.get(basePath).toAbsolutePath().normalize();
+            Path resolved = base.resolve(filePath).normalize();
+            if (!resolved.startsWith(base)) {
+                throw new BusinessException("Chemin de fichier invalide: " + filePath);
+            }
+            return new UrlResource(resolved.toUri());
         } catch (MalformedURLException e) {
             throw new BusinessException("Chemin de fichier invalide: " + filePath);
         }
@@ -50,8 +54,12 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     public void delete(String filePath) {
         try {
-            Path path = Paths.get(basePath).resolve(filePath);
-            Files.deleteIfExists(path);
+            Path base = Paths.get(basePath).toAbsolutePath().normalize();
+            Path resolved = base.resolve(filePath).normalize();
+            if (!resolved.startsWith(base)) {
+                throw new BusinessException("Chemin de fichier invalide: " + filePath);
+            }
+            Files.deleteIfExists(resolved);
         } catch (IOException e) {
             log.warn("Impossible de supprimer le fichier physique: {}", filePath);
         }

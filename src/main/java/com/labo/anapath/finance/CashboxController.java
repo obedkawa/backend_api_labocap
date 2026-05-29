@@ -29,7 +29,7 @@ public class CashboxController {
     private final CashboxService cashboxService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-finance')")
+    @PreAuthorize("hasAuthority('view-invoices')")
     public ResponseEntity<ApiResponse<PageResponse<CashboxResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -39,13 +39,15 @@ public class CashboxController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-finance')")
-    public ResponseEntity<ApiResponse<CashboxResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(cashboxService.findById(id)));
+    @PreAuthorize("hasAuthority('view-invoices')")
+    public ResponseEntity<ApiResponse<CashboxResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(cashboxService.findById(id, principal.getBranchId())));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-finance')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<CashboxResponseDto>> create(
             @Valid @RequestBody CashboxRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -55,7 +57,7 @@ public class CashboxController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-finance')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<CashboxResponseDto>> update(
             @PathVariable UUID id,
             @Valid @RequestBody CashboxRequestDto dto) {
@@ -64,7 +66,7 @@ public class CashboxController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-finance')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         cashboxService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Caisse supprimée", null));

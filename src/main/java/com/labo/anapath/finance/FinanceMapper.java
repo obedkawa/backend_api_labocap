@@ -12,7 +12,7 @@ public interface FinanceMapper {
     @Mapping(target = "testOrderId", source = "testOrder.id")
     @Mapping(target = "testOrderCode", source = "testOrder.code")
     @Mapping(target = "patientId", source = "patient.id")
-    @Mapping(target = "patientName", expression = "java(invoice.getPatient() != null ? invoice.getPatient().getFirstName() + ' ' + invoice.getPatient().getLastName() : null)")
+    @Mapping(target = "patientName", expression = "java(invoice.getPatient() != null ? invoice.getPatient().getFirstname() + ' ' + invoice.getPatient().getLastname() : null)")
     @Mapping(target = "contratId", source = "contrat.id")
     @Mapping(target = "contratName", source = "contrat.name")
     @Mapping(target = "statusInvoice", source = "statusInvoice")

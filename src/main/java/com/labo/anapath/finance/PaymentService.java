@@ -27,11 +27,12 @@ public interface PaymentService {
     /**
      * Retourne le détail d'un paiement par son identifiant.
      *
-     * @param id identifiant du paiement
+     * @param id       identifiant du paiement
+     * @param branchId identifiant de l'agence du demandeur
      * @return le paiement trouvé
-     * @throws com.labo.anapath.common.exception.ResourceNotFoundException si introuvable
+     * @throws com.labo.anapath.common.exception.ResourceNotFoundException si introuvable ou hors agence
      */
-    PaymentResponseDto findById(UUID id);
+    PaymentResponseDto findById(UUID id, UUID branchId);
 
     /**
      * Enregistre un nouveau paiement sur une facture existante.

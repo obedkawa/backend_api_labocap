@@ -6,6 +6,8 @@ import com.labo.anapath.common.exception.DuplicateResourceException;
 import com.labo.anapath.common.exception.InvalidOperationException;
 import com.labo.anapath.common.exception.ResourceNotFoundException;
 import com.labo.anapath.contract.ContratRepository;
+import com.labo.anapath.contract.DetailsContrat;
+import com.labo.anapath.contract.DetailsContratRepository;
 import com.labo.anapath.doctor.DoctorRepository;
 import com.labo.anapath.doctor.HospitalRepository;
 import com.labo.anapath.finance.Invoice;
@@ -30,6 +32,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +40,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Implémentation du service des bons d'examen anatomopathologiques.
@@ -60,6 +65,7 @@ public class TestOrderServiceImpl implements TestOrderService {
     private final DoctorRepository doctorRepository;
     private final HospitalRepository hospitalRepository;
     private final ContratRepository contratRepository;
+    private final DetailsContratRepository detailsContratRepository;
     private final TypeOrderRepository typeOrderRepository;
     private final LabTestRepository labTestRepository;
     private final TestOrderMapper testOrderMapper;
@@ -76,17 +82,89 @@ public class TestOrderServiceImpl implements TestOrderService {
     @Transactional(readOnly = true)
     public PageResponse<TestOrderResponseDto> findAll(int page, int size, TestOrderFilterDto filter, UUID branchId) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<TestOrderResponseDto> result = testOrderRepository
-                .findAll(TestOrderSpecification.filter(branchId, filter), pageRequest)
-                .map(testOrderMapper::toResponseDto);
-        return PageResponse.of(result);
+        Page<TestOrder> orderPage = testOrderRepository
+                .findAll(TestOrderSpecification.filter(branchId, filter), pageRequest);
+
+        // Batch fetch reports et invoices pour éviter les N+1
+        List<UUID> ids = orderPage.getContent().stream().map(TestOrder::getId).toList();
+        Map<UUID, Report> reportMap = reportRepository.findByTestOrder_IdIn(ids)
+                .stream().collect(Collectors.toMap(
+                        r -> r.getTestOrder().getId(), r -> r, (a, b) -> a));
+        Map<UUID, Invoice> invoiceMap = invoiceRepository.findByTestOrder_IdIn(ids)
+                .stream().collect(Collectors.toMap(
+                        i -> i.getTestOrder().getId(), i -> i, (a, b) -> a));
+
+        List<TestOrderResponseDto> content = orderPage.getContent().stream()
+                .map(order -> enrichDto(testOrderMapper.toResponseDto(order),
+                        reportMap.get(order.getId()), invoiceMap.get(order.getId())))
+                .toList();
+
+        return new PageResponse<>(content, orderPage.getNumber(), orderPage.getSize(),
+                orderPage.getTotalElements(), orderPage.getTotalPages(), orderPage.isLast());
+    }
+
+    // -------------------------------------------------------------------------
+    // Immunohistochimie
+    // -------------------------------------------------------------------------
+
+    /**
+     * Retourne la page de bons d'examen restreinte aux types immuno
+     * ({@code immuno-interne}, {@code immuno-exterme}) pour la branche donnée,
+     * en appliquant les critères du filtre standard.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<TestOrderResponseDto> findAllImmuno(int page, int size, TestOrderFilterDto filter, UUID branchId) {
+        List<UUID> immunoTypeIds = typeOrderRepository.findImmunoTypeIds(branchId);
+        if (immunoTypeIds.isEmpty()) {
+            return PageResponse.of(Page.empty());
+        }
+
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("createdAt").descending());
+
+        Specification<TestOrder> spec = TestOrderSpecification.filter(branchId, filter)
+                .and(TestOrderSpecification.typeOrderIdIn(immunoTypeIds));
+
+        Page<TestOrder> orderPage = testOrderRepository.findAll(spec, pageRequest);
+
+        // Batch fetch reports et invoices pour éviter les N+1
+        List<UUID> ids = orderPage.getContent().stream().map(TestOrder::getId).toList();
+        Map<UUID, Report> reportMap = reportRepository.findByTestOrder_IdIn(ids)
+                .stream().collect(Collectors.toMap(
+                        r -> r.getTestOrder().getId(), r -> r, (a, b) -> a));
+        Map<UUID, Invoice> invoiceMap = invoiceRepository.findByTestOrder_IdIn(ids)
+                .stream().collect(Collectors.toMap(
+                        i -> i.getTestOrder().getId(), i -> i, (a, b) -> a));
+
+        List<TestOrderResponseDto> content = orderPage.getContent().stream()
+                .map(order -> enrichDto(testOrderMapper.toResponseDto(order),
+                        reportMap.get(order.getId()), invoiceMap.get(order.getId())))
+                .toList();
+
+        return new PageResponse<>(content, orderPage.getNumber(), orderPage.getSize(),
+                orderPage.getTotalElements(), orderPage.getTotalPages(), orderPage.isLast());
+    }
+
+    /**
+     * Compte les bons immuno dont le rapport est en statut DRAFT ou inexistant.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public long countImmunoPending(UUID branchId) {
+        List<UUID> immunoTypeIds = typeOrderRepository.findImmunoTypeIds(branchId);
+        if (immunoTypeIds.isEmpty()) return 0L;
+        return testOrderRepository.countImmunoPending(branchId, immunoTypeIds);
     }
 
     @Override
     @Transactional(readOnly = true)
     public TestOrderResponseDto findById(UUID id, UUID branchId) {
-        return testOrderMapper.toResponseDto(testOrderRepository.findByIdAndBranchId(id, branchId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bon d'examen", id)));
+        TestOrder order = testOrderRepository.findByIdAndBranchId(id, branchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Bon d'examen", id));
+        TestOrderResponseDto dto = testOrderMapper.toResponseDto(order);
+        Report report = reportRepository.findByTestOrderId(order.getId()).orElse(null);
+        Invoice invoice = invoiceRepository.findByTestOrderId(order.getId()).orElse(null);
+        return enrichDto(dto, report, invoice);
     }
 
     /**
@@ -114,30 +192,33 @@ public class TestOrderServiceImpl implements TestOrderService {
         order.setSubtotal(dto.getSubtotal());
         order.setDiscount(dto.getDiscount());
         order.setTotal(dto.getTotal());
+        if (dto.getAssignedToUserId() != null) {
+            order.setAssignedToUserId(dto.getAssignedToUserId());
+        }
 
-        order.setPatient(patientRepository.findById(dto.getPatientId())
+        order.setPatient(patientRepository.findByIdAndBranchId(dto.getPatientId(), branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", dto.getPatientId())));
 
         if (dto.getDoctorId() != null) {
-            order.setDoctor(doctorRepository.findById(dto.getDoctorId())
+            order.setDoctor(doctorRepository.findByIdAndBranchId(dto.getDoctorId(), branchId)
                     .orElseThrow(() -> new ResourceNotFoundException("Médecin", dto.getDoctorId())));
         }
         if (dto.getHospitalId() != null) {
-            order.setHospital(hospitalRepository.findById(dto.getHospitalId())
+            order.setHospital(hospitalRepository.findByIdAndBranchId(dto.getHospitalId(), branchId)
                     .orElseThrow(() -> new ResourceNotFoundException("Hôpital", dto.getHospitalId())));
         }
         if (dto.getContratId() != null) {
-            order.setContrat(contratRepository.findById(dto.getContratId())
+            order.setContrat(contratRepository.findByIdAndBranchId(dto.getContratId(), branchId)
                     .orElseThrow(() -> new ResourceNotFoundException("Contrat", dto.getContratId())));
         }
         if (dto.getTypeOrderId() != null) {
-            order.setTypeOrder(typeOrderRepository.findById(dto.getTypeOrderId())
+            order.setTypeOrder(typeOrderRepository.findByIdAndBranchId(dto.getTypeOrderId(), branchId)
                     .orElseThrow(() -> new ResourceNotFoundException("Type de bon", dto.getTypeOrderId())));
         }
 
         if (dto.getDetails() != null && !dto.getDetails().isEmpty()) {
             List<DetailTestOrder> details = dto.getDetails().stream().map(detailDto -> {
-                LabTest labTest = labTestRepository.findById(detailDto.getLabTestId())
+                LabTest labTest = labTestRepository.findByIdAndBranchId(detailDto.getLabTestId(), branchId)
                         .orElseThrow(() -> new ResourceNotFoundException("Analyse", detailDto.getLabTestId()));
                 DetailTestOrder detail = new DetailTestOrder();
                 detail.setTestOrder(order);
@@ -179,21 +260,22 @@ public class TestOrderServiceImpl implements TestOrderService {
         if (dto.getIsUrgent() != null) order.setIsUrgent(dto.getIsUrgent());
         if (dto.getOption() != null) order.setOption(dto.getOption());
         if (dto.getTestAffiliate() != null) order.setTestAffiliate(dto.getTestAffiliate());
+        if (dto.getAssignedToUserId() != null) order.setAssignedToUserId(dto.getAssignedToUserId());
 
         if (dto.getDoctorId() != null) {
-            order.setDoctor(doctorRepository.findById(dto.getDoctorId())
+            order.setDoctor(doctorRepository.findByIdAndBranchId(dto.getDoctorId(), branchId)
                     .orElseThrow(() -> new ResourceNotFoundException("Médecin", dto.getDoctorId())));
         }
         if (dto.getHospitalId() != null) {
-            order.setHospital(hospitalRepository.findById(dto.getHospitalId())
+            order.setHospital(hospitalRepository.findByIdAndBranchId(dto.getHospitalId(), branchId)
                     .orElseThrow(() -> new ResourceNotFoundException("Hôpital", dto.getHospitalId())));
         }
         if (dto.getContratId() != null) {
-            order.setContrat(contratRepository.findById(dto.getContratId())
+            order.setContrat(contratRepository.findByIdAndBranchId(dto.getContratId(), branchId)
                     .orElseThrow(() -> new ResourceNotFoundException("Contrat", dto.getContratId())));
         }
         if (dto.getTypeOrderId() != null) {
-            order.setTypeOrder(typeOrderRepository.findById(dto.getTypeOrderId())
+            order.setTypeOrder(typeOrderRepository.findByIdAndBranchId(dto.getTypeOrderId(), branchId)
                     .orElseThrow(() -> new ResourceNotFoundException("Type de bon", dto.getTypeOrderId())));
         }
         return testOrderMapper.toResponseDto(testOrderRepository.save(order));
@@ -307,7 +389,33 @@ public class TestOrderServiceImpl implements TestOrderService {
         }
 
         return testOrderMapper.toResponseDto(
-                testOrderRepository.findById(id).orElseThrow());
+                testOrderRepository.findByIdAndBranchId(id, branchId).orElseThrow());
+    }
+
+    /**
+     * Enrichit un {@link TestOrderResponseDto} avec les informations du rapport et de la facture associés.
+     *
+     * @param dto     DTO de base issu du mapper
+     * @param report  rapport associé au bon (null si pas encore créé)
+     * @param invoice facture associée au bon (null si pas encore créée)
+     * @return un nouveau DTO avec les champs reportId, reportStatus, reportIsDelivered, invoiceId renseignés
+     */
+    private TestOrderResponseDto enrichDto(TestOrderResponseDto dto, Report report, Invoice invoice) {
+        return new TestOrderResponseDto(
+                dto.id(), dto.code(), dto.status(), dto.prelevementDate(),
+                dto.referenceHopital(), dto.isUrgent(), dto.subtotal(), dto.discount(), dto.total(),
+                dto.patientId(), dto.patientFirstname(), dto.patientLastname(),
+                dto.doctorId(), dto.doctorName(), dto.hospitalId(), dto.hospitalName(),
+                dto.contratId(), dto.contratName(), dto.typeOrderId(), dto.typeOrderTitle(),
+                dto.attribuateDoctorId(), dto.assignedToUserId(),
+                dto.details(), dto.branchId(), dto.createdAt(),
+                // champs enrichis :
+                report != null ? report.getId() : null,
+                report != null ? report.getStatus().name() : null,
+                report != null && report.isDelivered(),
+                invoice != null ? invoice.getId() : null,
+                dto.archive()
+        );
     }
 
     /**
@@ -502,8 +610,8 @@ public class TestOrderServiceImpl implements TestOrderService {
      */
     @Override
     @Transactional
-    public TestOrderResponseDto markAsDelivered(UUID id) {
-        TestOrder order = testOrderRepository.findById(id)
+    public TestOrderResponseDto markAsDelivered(UUID id, UUID branchId) {
+        TestOrder order = testOrderRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bon d'examen", id));
         if (order.getStatus() != TestOrderStatus.VALIDATED) {
             throw new InvalidOperationException("Seul un bon VALIDATED peut être livré.");
@@ -518,7 +626,7 @@ public class TestOrderServiceImpl implements TestOrderService {
 
         log.info("Bon d'examen livré: id={}", id);
         return testOrderMapper.toResponseDto(
-                testOrderRepository.findById(id).orElseThrow());
+                testOrderRepository.findByIdAndBranchId(id, branchId).orElseThrow());
     }
 
     /**
@@ -547,8 +655,8 @@ public class TestOrderServiceImpl implements TestOrderService {
 
     @Override
     @Transactional
-    public java.util.List<String> uploadImages(UUID id, java.util.List<org.springframework.web.multipart.MultipartFile> files) {
-        TestOrder order = testOrderRepository.findById(id)
+    public java.util.List<String> uploadImages(UUID id, UUID branchId, java.util.List<org.springframework.web.multipart.MultipartFile> files) {
+        TestOrder order = testOrderRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bon d'examen", id));
         java.util.List<String> existing = parseFilesName(order.getFilesName());
         for (org.springframework.web.multipart.MultipartFile file : files) {
@@ -569,8 +677,8 @@ public class TestOrderServiceImpl implements TestOrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public java.util.List<ImageDto> getImages(UUID id) {
-        TestOrder order = testOrderRepository.findById(id)
+    public java.util.List<ImageDto> getImages(UUID id, UUID branchId) {
+        TestOrder order = testOrderRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bon d'examen", id));
         java.util.List<String> filenames = parseFilesName(order.getFilesName());
         java.util.List<ImageDto> result = new java.util.ArrayList<>();
@@ -582,8 +690,8 @@ public class TestOrderServiceImpl implements TestOrderService {
 
     @Override
     @Transactional
-    public void deleteImage(UUID id, int index) {
-        TestOrder order = testOrderRepository.findById(id)
+    public void deleteImage(UUID id, int index, UUID branchId) {
+        TestOrder order = testOrderRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bon d'examen", id));
         java.util.List<String> filenames = parseFilesName(order.getFilesName());
         if (index < 0 || index >= filenames.size()) {
@@ -611,5 +719,90 @@ public class TestOrderServiceImpl implements TestOrderService {
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             return new java.util.ArrayList<>();
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Myspace
+    // -------------------------------------------------------------------------
+
+    /**
+     * Calcule les statistiques des bons d'examen assignés à l'utilisateur connecté.
+     *
+     * <p>Le seuil de retard est fixé à 48 heures à partir de la date d'assignation.
+     *
+     * @param userId   identifiant de l'utilisateur
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @return DTO de statistiques
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public MyspaceStatsDto getMyspaceStats(UUID userId, UUID branchId) {
+        long totalAssigned  = testOrderRepository.countByAssignedToUserIdAndBranchId(userId, branchId);
+        long totalPending   = testOrderRepository.countByAssignedToUserIdAndBranchIdAndStatus(userId, branchId, TestOrderStatus.PENDING);
+        long totalValidated = testOrderRepository.countByAssignedToUserIdAndBranchIdAndStatus(userId, branchId, TestOrderStatus.VALIDATED);
+        long totalUrgent    = testOrderRepository.countUrgentByAssignedToUserIdAndBranchId(userId, branchId);
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(48);
+        long totalLate      = testOrderRepository.countLateByAssignedToUserIdAndBranchId(userId, branchId, TestOrderStatus.PENDING, cutoff);
+        return new MyspaceStatsDto(totalAssigned, totalPending, totalValidated, totalUrgent, totalLate);
+    }
+
+    /**
+     * Retourne la page de bons d'examen assignés à l'utilisateur, avec filtres optionnels.
+     *
+     * @param userId   identifiant de l'utilisateur
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @param page     numéro de page (0-based)
+     * @param size     taille de la page
+     * @param status   filtre optionnel sur le statut
+     * @param search   recherche textuelle optionnelle (code ou nom patient)
+     * @return page de {@link TestOrderResponseDto}
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<TestOrderResponseDto> getMyspaceOrders(UUID userId, UUID branchId, int page, int size,
+                                                               TestOrderStatus status, String search) {
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        String searchParam = (search != null && !search.isBlank()) ? search : null;
+        String statusParam = (status != null) ? status.name() : null;
+        Page<TestOrderResponseDto> result = testOrderRepository
+                .findMyspaceOrders(userId, branchId, statusParam, searchParam, pageRequest)
+                .map(testOrderMapper::toResponseDto);
+        return PageResponse.of(result);
+    }
+
+    // -------------------------------------------------------------------------
+    // Tarification contractuelle
+    // -------------------------------------------------------------------------
+
+    /**
+     * Retourne la tarification d'une analyse pour un contrat donné.
+     *
+     * <p>Si l'analyse figure dans le contrat, retourne le prix négocié et la remise.
+     * Sinon, retourne le prix catalogue avec une remise de zéro.
+     *
+     * @param contratId identifiant du contrat
+     * @param labTestId identifiant de l'analyse
+     * @param branchId  identifiant de la branche (pour récupérer l'analyse du catalogue)
+     * @return DTO de tarification
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public DiscountDto getDiscount(UUID contratId, UUID labTestId, UUID branchId) {
+        LabTest labTest = labTestRepository.findByIdAndBranchId(labTestId, branchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Analyse", labTestId));
+        BigDecimal basePrice = labTest.getPrice() != null ? labTest.getPrice() : BigDecimal.ZERO;
+
+        DetailsContrat details = detailsContratRepository
+                .findByContratIdAndLabTestId(contratId, labTestId)
+                .orElse(null);
+
+        if (details == null) {
+            return new DiscountDto(basePrice, null, BigDecimal.ZERO, basePrice);
+        }
+
+        BigDecimal contractPrice      = details.getPrice();
+        BigDecimal discount           = details.getAmountRemise() != null ? details.getAmountRemise() : BigDecimal.ZERO;
+        BigDecimal priceAfterDiscount = details.getAmountAfterRemise() != null ? details.getAmountAfterRemise() : basePrice;
+        return new DiscountDto(basePrice, contractPrice, discount, priceAfterDiscount);
     }
 }

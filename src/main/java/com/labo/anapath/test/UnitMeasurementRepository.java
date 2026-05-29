@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -24,4 +25,6 @@ public interface UnitMeasurementRepository extends JpaRepository<UnitMeasurement
      * @return page d'unités de mesure
      */
     Page<UnitMeasurement> findByBranchId(UUID branchId, Pageable pageable);
+
+    List<UnitMeasurement> findAllByBranchIdOrderByName(UUID branchId);
 }

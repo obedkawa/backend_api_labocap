@@ -9,6 +9,7 @@ public record SupplierResponseDto(
         String phone,
         String email,
         String address,
+        String information,
         String category,
         UUID categoryId,
         String categoryName,

@@ -26,6 +26,9 @@ public class TestOrderFilterDto {
     /** Filtre sur l'identifiant du médecin prescripteur. */
     private UUID doctorId;
 
+    /** Filtre sur le pathologiste attribué (attribuate_doctor_id). */
+    private UUID attribuateDoctorId;
+
     /** Filtre sur l'identifiant de l'hôpital d'origine. */
     private UUID hospitalId;
 
@@ -40,4 +43,10 @@ public class TestOrderFilterDto {
 
     /** Texte recherché dans le code du bon (recherche insensible à la casse). */
     private String search;
+
+    /** Filtre sur l'identifiant du contrat. */
+    private UUID contratId;
+
+    /** Filtre sur l'identifiant du type d'examen. */
+    private UUID typeOrderId;
 }

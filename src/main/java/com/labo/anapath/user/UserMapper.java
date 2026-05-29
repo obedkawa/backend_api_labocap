@@ -1,5 +1,6 @@
 package com.labo.anapath.user;
 
+import com.labo.anapath.role.PermissionMapper;
 import com.labo.anapath.role.RoleMapper;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
@@ -15,7 +16,7 @@ import org.mapstruct.ReportingPolicy;
  * Les champs sensibles (mot de passe, rôles) sont exclus des mappings
  * afin de ne jamais être écrasés accidentellement par une mise à jour partielle.</p>
  */
-@Mapper(componentModel = "spring", uses = {RoleMapper.class}, unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", uses = {RoleMapper.class, PermissionMapper.class}, unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface UserMapper {
 
     /**
@@ -27,6 +28,7 @@ public interface UserMapper {
      */
     @Mapping(target = "isActive", source = "active")
     @Mapping(target = "roles", source = "roles")
+    @Mapping(target = "directPermissions", source = "directPermissions")
     UserResponseDto toResponseDto(User user);
 
     /**

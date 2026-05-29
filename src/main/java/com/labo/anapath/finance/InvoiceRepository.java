@@ -1,5 +1,7 @@
 package com.labo.anapath.finance;
 
+import com.labo.anapath.dashboard.DashboardDto;
+import com.labo.anapath.dashboard.DashboardProjection;
 import com.labo.anapath.patient.Patient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,17 +26,32 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     Optional<Invoice> findByTestOrderId(UUID testOrderId);
 
+    List<Invoice> findByTestOrder_IdIn(Collection<UUID> testOrderIds);
+
     Optional<Invoice> findFirstByContratIdOrderByCreatedAtDesc(UUID contratId);
 
-    @Query("SELECT i FROM Invoice i WHERE i.branchId = :branchId AND i.code IS NOT NULL " +
-           "AND i.code <> 'REGULARISATION' AND YEAR(i.createdAt) = :year ORDER BY i.code DESC")
+    @Query(value = """
+            SELECT i.* FROM invoices i
+            WHERE i.deleted_at IS NULL AND i.branch_id = :branchId
+              AND i.code IS NOT NULL AND i.code <> 'REGULARISATION'
+              AND EXTRACT(YEAR FROM i.created_at) = :year
+            ORDER BY i.code DESC
+            LIMIT :#{#pageable.pageSize} OFFSET :#{#pageable.offset}
+            """, nativeQuery = true)
     List<Invoice> findByBranchIdAndCodeNotNullAndYear(
             @Param("branchId") UUID branchId,
             @Param("year") int year,
             Pageable pageable);
 
-    @Query("SELECT i FROM Invoice i WHERE i.branchId = :branchId AND i.statusInvoice = :statusInvoice " +
-           "AND i.code IS NOT NULL AND YEAR(i.createdAt) = :year ORDER BY i.code DESC")
+    @Query(value = """
+            SELECT i.* FROM invoices i
+            WHERE i.deleted_at IS NULL AND i.branch_id = :branchId
+              AND i.status_invoice = :statusInvoice
+              AND i.code IS NOT NULL
+              AND EXTRACT(YEAR FROM i.created_at) = :year
+            ORDER BY i.code DESC
+            LIMIT :#{#pageable.pageSize} OFFSET :#{#pageable.offset}
+            """, nativeQuery = true)
     List<Invoice> findByBranchIdAndStatusInvoiceAndCodeNotNullAndYear(
             @Param("branchId") UUID branchId,
             @Param("statusInvoice") int statusInvoice,
@@ -82,7 +100,47 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 
+    @Query(value = """
+            SELECT i.* FROM invoices i
+            WHERE i.deleted_at IS NULL
+              AND i.branch_id = :branchId
+              AND (:paid IS NULL OR i.paid = :paid)
+              AND (:statusInvoice IS NULL OR i.status_invoice = :statusInvoice)
+              AND (CAST(:startDateTime AS text) IS NULL OR i.created_at >= CAST(:startDateTime AS timestamp))
+              AND (CAST(:endDateTime   AS text) IS NULL OR i.created_at <= CAST(:endDateTime   AS timestamp))
+              AND (CAST(:search AS text) IS NULL OR (
+                    lower(coalesce(i.code,        '')) LIKE lower('%' || :search || '%')
+                 OR lower(coalesce(i.client_name, '')) LIKE lower('%' || :search || '%')
+              ))
+            ORDER BY i.created_at DESC
+            """,
+            countQuery = """
+            SELECT COUNT(*) FROM invoices i
+            WHERE i.deleted_at IS NULL
+              AND i.branch_id = :branchId
+              AND (:paid IS NULL OR i.paid = :paid)
+              AND (:statusInvoice IS NULL OR i.status_invoice = :statusInvoice)
+              AND (CAST(:startDateTime AS text) IS NULL OR i.created_at >= CAST(:startDateTime AS timestamp))
+              AND (CAST(:endDateTime   AS text) IS NULL OR i.created_at <= CAST(:endDateTime   AS timestamp))
+              AND (CAST(:search AS text) IS NULL OR (
+                    lower(coalesce(i.code,        '')) LIKE lower('%' || :search || '%')
+                 OR lower(coalesce(i.client_name, '')) LIKE lower('%' || :search || '%')
+              ))
+            """,
+            nativeQuery = true)
+    Page<Invoice> findFiltered(
+            @Param("branchId") UUID branchId,
+            @Param("paid") Boolean paid,
+            @Param("statusInvoice") Integer statusInvoice,
+            @Param("startDateTime") java.time.LocalDateTime startDateTime,
+            @Param("endDateTime") java.time.LocalDateTime endDateTime,
+            @Param("search") String search,
+            Pageable pageable);
+
     Optional<Invoice> findFirstByCodeMecefOrCodeNormalise(String codeMecef, String codeNormalise);
+
+    Optional<Invoice> findFirstByCodeMecefAndBranchIdOrCodeNormaliseAndBranchId(
+            String codeMecef, UUID branchId1, String codeNormalise, UUID branchId2);
 
     // Recherche par période — total facturé (toutes factures, paid ou non)
     @Query(value = "SELECT COALESCE(SUM(total), 0) FROM invoices " +
@@ -94,4 +152,136 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
             @Param("branchId") UUID branchId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    // Dashboard — total global toutes factures
+    @Query(value = "SELECT COALESCE(SUM(total), 0) FROM invoices WHERE branch_id = :branchId AND deleted_at IS NULL",
+           nativeQuery = true)
+    BigDecimal sumTotalByBranchId(@Param("branchId") UUID branchId);
+
+    // Dashboard — ventes payées sur une période (status_invoice=0)
+    @Query(value = "SELECT COALESCE(SUM(total), 0) FROM invoices " +
+                   "WHERE branch_id = :branchId AND paid = true AND status_invoice = 0 " +
+                   "AND DATE(updated_at) >= :start AND DATE(updated_at) <= :end AND deleted_at IS NULL",
+           nativeQuery = true)
+    BigDecimal sumPaidSalesByBranchIdAndDateRange(@Param("branchId") UUID branchId,
+                                                   @Param("start") LocalDate start,
+                                                   @Param("end") LocalDate end);
+
+    // Dashboard — comptage factures par statut et type
+    @Query(value = "SELECT COUNT(*) FROM invoices WHERE branch_id = :branchId AND status_invoice = :statusInvoice AND paid = :paid AND deleted_at IS NULL",
+           nativeQuery = true)
+    long countByBranchIdAndStatusInvoiceAndPaid(@Param("branchId") UUID branchId,
+                                                 @Param("statusInvoice") int statusInvoice,
+                                                 @Param("paid") boolean paid);
+
+    // Dashboard — somme factures par statut et type
+    @Query(value = "SELECT COALESCE(SUM(total), 0) FROM invoices WHERE branch_id = :branchId AND status_invoice = :statusInvoice AND paid = :paid AND deleted_at IS NULL",
+           nativeQuery = true)
+    BigDecimal sumByBranchIdAndStatusInvoiceAndPaid(@Param("branchId") UUID branchId,
+                                                     @Param("statusInvoice") int statusInvoice,
+                                                     @Param("paid") boolean paid);
+
+    // Dashboard — revenus par jour sur une plage
+    @Query(value = """
+            SELECT TO_CHAR(DATE(updated_at), 'YYYY-MM-DD') as date, COALESCE(SUM(total), 0) as total
+            FROM invoices
+            WHERE branch_id = :branchId AND paid = true AND status_invoice = 0
+              AND DATE(updated_at) >= :start AND DATE(updated_at) <= :end
+              AND deleted_at IS NULL
+            GROUP BY DATE(updated_at) ORDER BY DATE(updated_at)
+            """, nativeQuery = true)
+    List<DashboardProjection.DayRevenue> sumPaidByDayInRange(@Param("branchId") UUID branchId,
+                                                       @Param("start") LocalDate start,
+                                                       @Param("end") LocalDate end);
+
+    // Rapports — somme des factures par mois/année et statut (vente=0, avoir=1)
+    @Query(value = """
+            SELECT COALESCE(SUM(total), 0) FROM invoices
+            WHERE branch_id = :branchId AND deleted_at IS NULL
+              AND status_invoice = :statusInvoice
+              AND EXTRACT(MONTH FROM created_at) = :month
+              AND EXTRACT(YEAR FROM created_at) = :year
+            """, nativeQuery = true)
+    BigDecimal sumByBranchIdMonthYearAndStatus(
+            @Param("branchId") UUID branchId,
+            @Param("month") int month,
+            @Param("year") int year,
+            @Param("statusInvoice") int statusInvoice);
+
+    // Rapports — encaissements (ventes payées) sur le mois/année
+    @Query(value = """
+            SELECT COALESCE(SUM(total), 0) FROM invoices
+            WHERE branch_id = :branchId AND deleted_at IS NULL
+              AND paid = true AND status_invoice = 0
+              AND EXTRACT(MONTH FROM updated_at) = :month
+              AND EXTRACT(YEAR FROM updated_at) = :year
+            """, nativeQuery = true)
+    BigDecimal sumPaidByBranchIdMonthYear(
+            @Param("branchId") UUID branchId,
+            @Param("month") int month,
+            @Param("year") int year);
+
+    // Rapports — totaux par contrat (ventes du mois)
+    @Query(value = """
+            SELECT COALESCE(c.name, 'Sans contrat') as contractName, COALESCE(SUM(i.total), 0) as total
+            FROM invoices i
+            LEFT JOIN contrats c ON c.id = i.contrat_id
+            WHERE i.branch_id = :branchId AND i.deleted_at IS NULL
+              AND i.status_invoice = 0
+              AND EXTRACT(MONTH FROM i.created_at) = :month
+              AND EXTRACT(YEAR FROM i.created_at) = :year
+            GROUP BY c.name
+            ORDER BY total DESC
+            """, nativeQuery = true)
+    List<Object[]> sumByContractAndMonthYear(
+            @Param("branchId") UUID branchId,
+            @Param("month") int month,
+            @Param("year") int year);
+
+    // Liste — compteur par type (vente / avoir)
+    @Query("""
+            SELECT COUNT(i) FROM Invoice i
+            WHERE i.branchId = :branchId AND i.statusInvoice = :statusInvoice
+            """)
+    long countByBranchIdAndStatusInvoice(
+            @Param("branchId") UUID branchId,
+            @Param("statusInvoice") int statusInvoice);
+
+    /**
+     * Vérifie l'existence d'une facture active (non soft-deleted, filtré par
+     * {@code @SQLRestriction}) pour un bon d'examen donné et un statut donné.
+     * Utilisé pour empêcher la création d'une seconde facture sur le même bon.
+     */
+    boolean existsByTestOrderIdAndStatusInvoice(UUID testOrderId, int statusInvoice);
+
+    /**
+     * Compte les factures d'une branche créées au cours d'une année civile donnée.
+     * Utilisé pour générer le numéro séquentiel du code facture ({@code FAYYNNNN}).
+     */
+    @Query(value = """
+            SELECT COUNT(*) FROM invoices
+            WHERE branch_id = :branchId
+              AND EXTRACT(YEAR FROM created_at) = :year
+              AND deleted_at IS NULL
+            """, nativeQuery = true)
+    long countByBranchIdAndCreatedAtYear(
+            @Param("branchId") UUID branchId,
+            @Param("year") int year);
+
+    // Rapports — agrégats mensuels (Facturés / Avoirs / CA) pour une année
+    @Query(value = """
+            SELECT
+                EXTRACT(MONTH FROM created_at)::int as month,
+                COALESCE(SUM(CASE WHEN status_invoice = 0 THEN total ELSE 0 END), 0) as facturated,
+                COALESCE(SUM(CASE WHEN status_invoice = 1 AND paid = true THEN total ELSE 0 END), 0) as credits,
+                COALESCE(SUM(CASE WHEN status_invoice = 0 AND paid = true THEN total ELSE 0 END), 0) as turnover
+            FROM invoices
+            WHERE branch_id = :branchId AND deleted_at IS NULL
+              AND EXTRACT(YEAR FROM created_at) = :year
+            GROUP BY EXTRACT(MONTH FROM created_at)
+            ORDER BY month
+            """, nativeQuery = true)
+    List<Object[]> findMonthlyStatsRaw(
+            @Param("branchId") UUID branchId,
+            @Param("year") int year);
 }

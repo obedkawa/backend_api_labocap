@@ -44,7 +44,7 @@ public class TitleReportController {
     private final TitleReportRepository titleReportRepository;
 
     /** DTO de réponse interne pour un titre de rapport. */
-    record TitleReportResponseDto(UUID id, String name, UUID branchId, LocalDateTime createdAt) {}
+    record TitleReportResponseDto(UUID id, String name, boolean isDefault, UUID branchId, LocalDateTime createdAt) {}
 
     /** DTO de requête interne pour la création ou mise à jour d'un titre de rapport. */
     @Getter
@@ -52,6 +52,15 @@ public class TitleReportController {
     static class TitleReportRequestDto {
         @NotBlank(message = "Le nom du titre est obligatoire")
         private String name;
+
+        /** Indique si ce titre doit devenir le titre par défaut. Optionnel, défaut {@code false}. */
+        private boolean isDefault = false;
+    }
+
+    /** Convertit une entité {@link TitleReport} en {@link TitleReportResponseDto}. */
+    private TitleReportResponseDto toDto(TitleReport t) {
+        return new TitleReportResponseDto(t.getId(), t.getName(), t.isDefault(),
+                t.getBranchId(), t.getCreatedAt());
     }
 
     /**
@@ -70,8 +79,24 @@ public class TitleReportController {
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success(PageResponse.of(
                 titleReportRepository.findByBranchId(principal.getBranchId(),
-                        PageRequest.of(page, size)).map(t -> new TitleReportResponseDto(
-                        t.getId(), t.getName(), t.getBranchId(), t.getCreatedAt())))));
+                        PageRequest.of(page, size)).map(this::toDto))));
+    }
+
+    /**
+     * Retourne le titre de rapport marqué comme "par défaut" pour la branche de l'utilisateur connecté.
+     *
+     * @param principal principal Spring Security contenant le branchId
+     * @return le titre par défaut, ou {@code null} si aucun n'est défini
+     */
+    @GetMapping("/default")
+    @PreAuthorize("hasAuthority('view-reports')")
+    public ResponseEntity<ApiResponse<TitleReportResponseDto>> getDefault(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        TitleReportResponseDto dto = titleReportRepository
+                .findFirstByBranchIdAndIsDefaultTrue(principal.getBranchId())
+                .map(this::toDto)
+                .orElse(null);
+        return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
     /**
@@ -85,8 +110,7 @@ public class TitleReportController {
     public ResponseEntity<ApiResponse<TitleReportResponseDto>> findById(@PathVariable UUID id) {
         TitleReport t = titleReportRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Titre de rapport", id));
-        return ResponseEntity.ok(ApiResponse.success(
-                new TitleReportResponseDto(t.getId(), t.getName(), t.getBranchId(), t.getCreatedAt())));
+        return ResponseEntity.ok(ApiResponse.success(toDto(t)));
     }
 
     /**
@@ -97,18 +121,22 @@ public class TitleReportController {
      * @return le titre créé avec le code HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     @Transactional
     public ResponseEntity<ApiResponse<TitleReportResponseDto>> create(
             @Valid @RequestBody TitleReportRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
+        if (dto.isDefault()) {
+            // Désactiver tous les autres titres comme défaut dans cette branche
+            titleReportRepository.unsetDefaultForBranch(principal.getBranchId());
+        }
         TitleReport t = new TitleReport();
         t.setBranchId(principal.getBranchId());
         t.setName(dto.getName());
+        t.setDefault(dto.isDefault());
         TitleReport saved = titleReportRepository.save(t);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Titre créé", new TitleReportResponseDto(
-                        saved.getId(), saved.getName(), saved.getBranchId(), saved.getCreatedAt())));
+                .body(ApiResponse.success("Titre créé", toDto(saved)));
     }
 
     /**
@@ -119,16 +147,20 @@ public class TitleReportController {
      * @return le titre mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     @Transactional
     public ResponseEntity<ApiResponse<TitleReportResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody TitleReportRequestDto dto) {
         TitleReport t = titleReportRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Titre de rapport", id));
+        if (dto.isDefault()) {
+            // Désactiver tous les autres titres comme défaut dans cette branche avant la sauvegarde
+            titleReportRepository.unsetDefaultForBranch(t.getBranchId());
+        }
         t.setName(dto.getName());
+        t.setDefault(dto.isDefault());
         TitleReport saved = titleReportRepository.save(t);
-        return ResponseEntity.ok(ApiResponse.success("Titre mis à jour", new TitleReportResponseDto(
-                saved.getId(), saved.getName(), saved.getBranchId(), saved.getCreatedAt())));
+        return ResponseEntity.ok(ApiResponse.success("Titre mis à jour", toDto(saved)));
     }
 
     /**
@@ -139,7 +171,7 @@ public class TitleReportController {
      * @return réponse vide 200 en cas de succès
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     @Transactional
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         titleReportRepository.findById(id)

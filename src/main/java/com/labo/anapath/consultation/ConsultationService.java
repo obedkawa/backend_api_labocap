@@ -11,7 +11,7 @@ public interface ConsultationService {
     PageResponse<ConsultationResponseDto> findAll(int page, int size, UUID branchId,
                                                    UUID patientId, String status, UUID doctorId);
 
-    ConsultationResponseDto findById(UUID id);
+    ConsultationResponseDto findById(UUID id, UUID branchId);
 
     ConsultationResponseDto create(ConsultationRequestDto dto, UUID branchId);
 

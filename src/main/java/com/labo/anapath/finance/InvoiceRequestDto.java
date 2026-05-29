@@ -13,9 +13,10 @@ import java.util.UUID;
 /**
  * DTO de création / mise à jour d'une facture.
  *
- * <p>Contient les informations nécessaires pour émettre une facture :
- * référence du bon d'examen, patient, date d'échéance et liste des lignes
- * de détail (analyses facturées avec quantité et prix unitaire).</p>
+ * <p>Comportement aligné sur Laravel : seul {@code testOrderId} est obligatoire.
+ * Tous les autres champs sont optionnels — le backend dérive automatiquement le
+ * patient, les montants et les lignes de détail depuis le bon d'examen ciblé,
+ * et génère le code facture (format {@code FAYYNNNN}).</p>
  */
 @Getter
 @Setter
@@ -25,14 +26,22 @@ public class InvoiceRequestDto {
     @NotNull(message = "Le bon d'examen est obligatoire")
     private UUID testOrderId;
 
-    /** Identifiant du patient facturé. Obligatoire. */
-    @NotNull(message = "Le patient est obligatoire")
+    /** Date de la facture (informatif). Si null : date du jour côté serveur. */
+    private LocalDate date;
+
+    /**
+     * Identifiant du patient facturé. Optionnel — sinon récupéré depuis le bon d'examen
+     * (comportement Laravel).
+     */
     private UUID patientId;
 
     /** Date limite de règlement. Null : paiement immédiat attendu. */
     private LocalDate dueDate;
 
-    /** Lignes de détail de la facture (une par analyse). */
+    /**
+     * Lignes de détail de la facture. Optionnel — si vide, les lignes sont générées
+     * automatiquement à partir des analyses du bon d'examen.
+     */
     private List<InvoiceDetailRequestDto> details = new ArrayList<>();
 
     /**

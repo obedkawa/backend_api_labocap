@@ -91,7 +91,7 @@ public class ClientController {
      * @return le DTO du client créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-clients')")
+    @PreAuthorize("hasAuthority('edit-clients')")
     public ResponseEntity<ApiResponse<ClientResponseDto>> create(
             @Valid @RequestBody ClientRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -109,7 +109,7 @@ public class ClientController {
      * @return le DTO du client mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-clients')")
+    @PreAuthorize("hasAuthority('edit-clients')")
     public ResponseEntity<ApiResponse<ClientResponseDto>> update(
             @PathVariable UUID id,
             @Valid @RequestBody ClientRequestDto dto,
@@ -125,7 +125,7 @@ public class ClientController {
      * @return réponse vide confirmant la suppression
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-clients')")
+    @PreAuthorize("hasAuthority('edit-clients')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         clientService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Client supprimé", null));

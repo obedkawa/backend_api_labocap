@@ -2,6 +2,7 @@ package com.labo.anapath.report;
 
 import com.labo.anapath.common.dto.PageResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface ReportService {
@@ -10,9 +11,11 @@ public interface ReportService {
 
     PageResponse<ReportResponseDto> findAll(int page, int size, UUID branchId, Integer month, Integer year, UUID doctorId);
 
+    PageResponse<ReportResponseDto> findAll(int page, int size, UUID branchId, Integer month, Integer year, UUID doctorId, String status, String search);
+
     ReportResponseDto findById(UUID id);
 
-    ReportDetailDto findDetailById(UUID id);
+    ReportDetailDto findDetailById(UUID id, UUID branchId);
 
     ReportResponseDto create(ReportRequestDto dto, UUID branchId);
 
@@ -34,9 +37,33 @@ public interface ReportService {
 
     ReportSuiviDto getSuivi(UUID branchId, Integer month, Integer year);
 
+    PageResponse<ReportSuiviRowDto> getSuiviList(
+            UUID branchId, int page, int size,
+            String search, String typeOrderId,
+            String dateBegin, String dateEnd,
+            Boolean isUrgent, Integer statusFilter);
+
+    PageResponse<ReportGlobalSearchRowDto> globalSearch(
+            UUID branchId, int page, int size,
+            List<String> typeOrderIds,
+            List<String> contratIds,
+            List<String> patientIds,
+            List<String> doctorIds,
+            List<String> hospitalIds,
+            String referenceHospital,
+            String dateBegin, String dateEnd,
+            String content, Boolean isUrgent);
+
     com.labo.anapath.setting.SettingReportTemplate getTemplate(UUID reportId);
 
     ReportResponseDto setTemplate(UUID reportId, UUID templateId);
 
     void logAction(UUID reportId, String action, UUID userId);
+
+    PageResponse<ReportListDto> getList(
+            UUID branchId, int page, int size,
+            String search, String statusFilter, String dateBegin, String dateEnd);
+
+    ReportPerformanceDto getPerformanceStats(
+            UUID branchId, String doctorId, Integer month, Integer year);
 }

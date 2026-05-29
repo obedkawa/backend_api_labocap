@@ -43,9 +43,13 @@ public class SettingReportTemplateController {
 
     private final SettingReportTemplateRepository settingReportTemplateRepository;
 
-    /** DTO de réponse interne représentant un modèle de rapport. */
+    /** DTO de réponse interne représentant un modèle de rapport (réplique Laravel + champs refonte). */
     record SettingReportTemplateResponseDto(
             UUID id,
+            String title,        // champ Laravel principal (équiv. name)
+            String description,  // champ Laravel
+            String detail,       // champ Laravel
+            String content,      // champ Laravel principal (équiv. header)
             String name,
             String header,
             String footer,
@@ -58,12 +62,32 @@ public class SettingReportTemplateController {
     @Getter
     @Setter
     static class SettingReportTemplateRequestDto {
-        @NotBlank(message = "Le nom du modèle est obligatoire")
-        private String name;
+        @NotBlank(message = "Le titre du modèle est obligatoire")
+        private String title;
 
+        private String description;
+        private String detail;
+        private String content;
+        private String name;
         private String header;
         private String footer;
         private String logoPath;
+    }
+
+    /** Helper de conversion entité → DTO. */
+    private SettingReportTemplateResponseDto toDto(SettingReportTemplate t) {
+        return new SettingReportTemplateResponseDto(
+                t.getId(),
+                t.getTitle() != null ? t.getTitle() : t.getName(),
+                t.getDescription(),
+                t.getDetail(),
+                t.getContent() != null ? t.getContent() : t.getHeader(),
+                t.getName(),
+                t.getHeader(),
+                t.getFooter(),
+                t.getLogoPath(),
+                t.getBranchId(),
+                t.getCreatedAt());
     }
 
     /**
@@ -82,9 +106,7 @@ public class SettingReportTemplateController {
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success(PageResponse.of(
                 settingReportTemplateRepository.findByBranchId(principal.getBranchId(),
-                        PageRequest.of(page, size)).map(t -> new SettingReportTemplateResponseDto(
-                        t.getId(), t.getName(), t.getHeader(), t.getFooter(),
-                        t.getLogoPath(), t.getBranchId(), t.getCreatedAt())))));
+                        PageRequest.of(page, size)).map(this::toDto))));
     }
 
     /**
@@ -98,9 +120,7 @@ public class SettingReportTemplateController {
     public ResponseEntity<ApiResponse<SettingReportTemplateResponseDto>> findById(@PathVariable UUID id) {
         SettingReportTemplate t = settingReportTemplateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Modèle de rapport", id));
-        return ResponseEntity.ok(ApiResponse.success(new SettingReportTemplateResponseDto(
-                t.getId(), t.getName(), t.getHeader(), t.getFooter(),
-                t.getLogoPath(), t.getBranchId(), t.getCreatedAt())));
+        return ResponseEntity.ok(ApiResponse.success(toDto(t)));
     }
 
     /**
@@ -111,22 +131,25 @@ public class SettingReportTemplateController {
      * @return le modèle créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-settings')")
+    @PreAuthorize("hasAuthority('edit-settings')")
     @Transactional
     public ResponseEntity<ApiResponse<SettingReportTemplateResponseDto>> create(
             @Valid @RequestBody SettingReportTemplateRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
         SettingReportTemplate t = new SettingReportTemplate();
         t.setBranchId(principal.getBranchId());
-        t.setName(dto.getName());
-        t.setHeader(dto.getHeader());
+        t.setTitle(dto.getTitle());
+        t.setDescription(dto.getDescription());
+        t.setDetail(dto.getDetail());
+        t.setContent(dto.getContent());
+        // Compat avec colonnes refonte
+        t.setName(dto.getName() != null ? dto.getName() : dto.getTitle());
+        t.setHeader(dto.getHeader() != null ? dto.getHeader() : dto.getContent());
         t.setFooter(dto.getFooter());
         t.setLogoPath(dto.getLogoPath());
         SettingReportTemplate saved = settingReportTemplateRepository.save(t);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Modèle créé", new SettingReportTemplateResponseDto(
-                        saved.getId(), saved.getName(), saved.getHeader(), saved.getFooter(),
-                        saved.getLogoPath(), saved.getBranchId(), saved.getCreatedAt())));
+                .body(ApiResponse.success("Modèle créé", toDto(saved)));
     }
 
     /**
@@ -137,20 +160,22 @@ public class SettingReportTemplateController {
      * @return le modèle mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-settings')")
+    @PreAuthorize("hasAuthority('edit-settings')")
     @Transactional
     public ResponseEntity<ApiResponse<SettingReportTemplateResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody SettingReportTemplateRequestDto dto) {
         SettingReportTemplate t = settingReportTemplateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Modèle de rapport", id));
-        t.setName(dto.getName());
-        t.setHeader(dto.getHeader());
+        t.setTitle(dto.getTitle());
+        t.setDescription(dto.getDescription());
+        t.setDetail(dto.getDetail());
+        t.setContent(dto.getContent());
+        t.setName(dto.getName() != null ? dto.getName() : dto.getTitle());
+        t.setHeader(dto.getHeader() != null ? dto.getHeader() : dto.getContent());
         t.setFooter(dto.getFooter());
         t.setLogoPath(dto.getLogoPath());
         SettingReportTemplate saved = settingReportTemplateRepository.save(t);
-        return ResponseEntity.ok(ApiResponse.success("Modèle mis à jour", new SettingReportTemplateResponseDto(
-                saved.getId(), saved.getName(), saved.getHeader(), saved.getFooter(),
-                saved.getLogoPath(), saved.getBranchId(), saved.getCreatedAt())));
+        return ResponseEntity.ok(ApiResponse.success("Modèle mis à jour", toDto(saved)));
     }
 
     /**
@@ -160,7 +185,7 @@ public class SettingReportTemplateController {
      * @return réponse vide confirmant la suppression
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-settings')")
+    @PreAuthorize("hasAuthority('edit-settings')")
     @Transactional
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         settingReportTemplateRepository.findById(id)

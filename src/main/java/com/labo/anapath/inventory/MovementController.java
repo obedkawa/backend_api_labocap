@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 /**
  * Contrôleur REST gérant les mouvements de stock (entrées, sorties, ajustements).
  * <p>
@@ -40,12 +42,14 @@ public class MovementController {
      * @return page de mouvements de stock
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('view-inventory')")
+    @PreAuthorize("hasAuthority('view-articles')")
     public ResponseEntity<ApiResponse<PageResponse<MovementResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) UUID articleId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(ApiResponse.success(movementService.findAll(page, size, principal.getBranchId())));
+        return ResponseEntity.ok(ApiResponse.success(
+                movementService.findAll(page, size, principal.getBranchId(), articleId)));
     }
 
     /**
@@ -56,11 +60,12 @@ public class MovementController {
      * @return le mouvement enregistré avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-inventory')")
+    @PreAuthorize("hasAuthority('edit-articles')")
     public ResponseEntity<ApiResponse<MovementResponseDto>> create(
             @Valid @RequestBody MovementRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Mouvement enregistré", movementService.create(dto, principal.getBranchId())));
+                .body(ApiResponse.success("Mouvement enregistré",
+                        movementService.create(dto, principal.getBranchId(), principal.getId())));
     }
 }

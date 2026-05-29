@@ -3,6 +3,8 @@ package com.labo.anapath;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Point d'entrée principal de l'application LIS Labo-Anapath.
@@ -14,6 +16,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
  */
 @SpringBootApplication
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
+@EnableScheduling
+@EnableAsync
 public class AnaPathApplication {
 
     /**

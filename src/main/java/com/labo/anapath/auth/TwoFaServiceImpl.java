@@ -9,7 +9,7 @@ import com.labo.anapath.common.exception.ResourceNotFoundException;
 import com.labo.anapath.user.User;
 import com.labo.anapath.user.UserRepository;
 import com.warrenstrange.googleauth.GoogleAuthenticator;
-import com.warrenstrange.googleauth.ICredentials;
+import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -56,7 +56,7 @@ public class TwoFaServiceImpl implements TwoFaService {
     public TwoFaSetupResponse setup(UUID userId) {
         User user = loadUser(userId);
 
-        ICredentials credentials = googleAuthenticator.createCredentials();
+        GoogleAuthenticatorKey credentials = googleAuthenticator.createCredentials();
         String secret = credentials.getKey();
 
         user.setTwoFactorSecret(secret);

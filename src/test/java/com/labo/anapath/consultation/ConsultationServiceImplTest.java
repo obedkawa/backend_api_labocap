@@ -2,12 +2,11 @@ package com.labo.anapath.consultation;
 
 import com.labo.anapath.common.exception.ResourceNotFoundException;
 import com.labo.anapath.common.storage.FileStorageService;
-import com.labo.anapath.doctor.Doctor;
-import com.labo.anapath.doctor.DoctorRepository;
 import com.labo.anapath.patient.Patient;
 import com.labo.anapath.patient.PatientRepository;
 import com.labo.anapath.prestation.Prestation;
 import com.labo.anapath.prestation.PrestationRepository;
+import com.labo.anapath.user.User;
 import com.labo.anapath.user.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,7 +36,6 @@ class ConsultationServiceImplTest {
     @Mock private ConsultationFileRepository consultationFileRepository;
     @Mock private TypeConsultationRepository typeConsultationRepository;
     @Mock private PatientRepository patientRepository;
-    @Mock private DoctorRepository doctorRepository;
     @Mock private PrestationRepository prestationRepository;
     @Mock private UserRepository userRepository;
     @Mock private ConsultationMapper consultationMapper;
@@ -209,8 +207,43 @@ class ConsultationServiceImplTest {
     void findById_notFound_throws() {
         when(consultationRepository.findById(CONSULTATION_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.findById(CONSULTATION_ID))
+        assertThatThrownBy(() -> service.findById(CONSULTATION_ID, BRANCH_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("create - doctorId → attribuateDoctor (User), pas doctor (Doctor) — AC 4-2")
+    void create_doctorId_setsAttribuateDoctor() {
+        Patient patient = buildPatient();
+        Prestation prestation = buildPrestation(new BigDecimal("5000.00"));
+        UUID doctorUserId = UUID.randomUUID();
+
+        User doctorUser = new User();
+        doctorUser.setId(doctorUserId);
+        doctorUser.setFirstname("Dr");
+        doctorUser.setLastname("Medecin");
+
+        ConsultationRequestDto dto = new ConsultationRequestDto();
+        dto.setPatientId(PATIENT_ID);
+        dto.setPrestationId(PRESTATION_ID);
+        dto.setDoctorId(doctorUserId);
+        dto.setDate(LocalDateTime.now());
+
+        Consultation saved = new Consultation();
+
+        when(consultationRepository.countByBranchId(BRANCH_ID)).thenReturn(0L);
+        when(prestationRepository.findById(PRESTATION_ID)).thenReturn(Optional.of(prestation));
+        when(patientRepository.findById(PATIENT_ID)).thenReturn(Optional.of(patient));
+        when(userRepository.findById(doctorUserId)).thenReturn(Optional.of(doctorUser));
+        when(consultationRepository.save(any())).thenReturn(saved);
+        when(consultationMapper.toResponseDto(saved)).thenReturn(null);
+
+        service.create(dto, BRANCH_ID);
+
+        ArgumentCaptor<Consultation> captor = ArgumentCaptor.forClass(Consultation.class);
+        verify(consultationRepository).save(captor.capture());
+        assertThat(captor.getValue().getAttribuateDoctor()).isEqualTo(doctorUser);
+        assertThat(captor.getValue().getDoctor()).isNull();
     }
 
     @Test

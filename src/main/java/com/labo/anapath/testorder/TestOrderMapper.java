@@ -28,8 +28,14 @@ public interface TestOrderMapper {
     @Mapping(target = "hospitalId", source = "hospital.id")
     @Mapping(target = "hospitalName", source = "hospital.name")
     @Mapping(target = "contratId", source = "contrat.id")
+    @Mapping(target = "contratName", source = "contrat.name")
     @Mapping(target = "typeOrderId", source = "typeOrder.id")
     @Mapping(target = "typeOrderTitle", source = "typeOrder.title")
+    @Mapping(target = "archive", source = "archive")
+    @Mapping(target = "reportId", ignore = true)
+    @Mapping(target = "reportStatus", ignore = true)
+    @Mapping(target = "reportIsDelivered", ignore = true)
+    @Mapping(target = "invoiceId", ignore = true)
     TestOrderResponseDto toResponseDto(TestOrder testOrder);
 
     /**

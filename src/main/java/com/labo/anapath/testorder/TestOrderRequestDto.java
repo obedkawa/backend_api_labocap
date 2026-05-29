@@ -2,6 +2,7 @@ package com.labo.anapath.testorder;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -57,13 +58,19 @@ public class TestOrderRequestDto {
     private String testAffiliate;
 
     /** Sous-total du bon avant remise globale (nullable, calculé côté client ou à la validation). */
+    @PositiveOrZero(message = "Le sous-total ne peut pas être négatif")
     private Double subtotal;
 
     /** Remise globale appliquée sur le bon (nullable). */
+    @PositiveOrZero(message = "La remise ne peut pas être négative")
     private Double discount;
 
     /** Total final du bon après remise globale (nullable). */
+    @PositiveOrZero(message = "Le total ne peut pas être négatif")
     private Double total;
+
+    /** Identifiant du technicien/utilisateur assigné pour le traitement du bon. */
+    private UUID assignedToUserId;
 
     /** Liste des analyses demandées avec leurs éventuelles remises individuelles. */
     @Valid

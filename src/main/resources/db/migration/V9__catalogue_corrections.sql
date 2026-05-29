@@ -8,7 +8,7 @@ ALTER TABLE category_tests
 ALTER TABLE type_orders
     ADD COLUMN IF NOT EXISTS slug VARCHAR(100);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_type_orders_slug ON type_orders(slug)
-    WHERE deleted_at IS NULL;
+    WHERE slug IS NOT NULL;
 
 -- 3. Ajouter 'status' sur lab_tests
 ALTER TABLE lab_tests

@@ -11,23 +11,22 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SupplierCategoryControllerTest {
 
-    @Mock SupplierCategoryRepository supplierCategoryRepository;
-    @Mock SupplierRepository supplierRepository;
+    @Mock SupplierCategoryService supplierCategoryService;
 
     SupplierCategoryController controller;
 
@@ -36,7 +35,7 @@ class SupplierCategoryControllerTest {
 
     @BeforeEach
     void setup() {
-        controller = new SupplierCategoryController(supplierCategoryRepository, supplierRepository);
+        controller = new SupplierCategoryController(supplierCategoryService);
     }
 
     private UserPrincipal mockPrincipal() {
@@ -45,18 +44,14 @@ class SupplierCategoryControllerTest {
         return p;
     }
 
-    private SupplierCategory buildCategory() {
-        SupplierCategory c = new SupplierCategory();
-        ReflectionTestUtils.setField(c, "id", CAT_ID);
-        c.setName("Réactifs");
-        return c;
+    private SupplierCategoryResponseDto dummyDto() {
+        return new SupplierCategoryResponseDto(CAT_ID, "Réactifs", "Réactifs chimiques", BRANCH_ID, null);
     }
 
     @Test
     @DisplayName("findAll - retourne liste de la branche")
     void findAll_returnsListByBranch() {
-        SupplierCategory cat = buildCategory();
-        when(supplierCategoryRepository.findByBranchId(BRANCH_ID)).thenReturn(List.of(cat));
+        when(supplierCategoryService.findAll(BRANCH_ID)).thenReturn(List.of(dummyDto()));
 
         ResponseEntity<?> response = controller.findAll(mockPrincipal());
 
@@ -66,8 +61,7 @@ class SupplierCategoryControllerTest {
     @Test
     @DisplayName("create - retourne 201")
     void createCategory_returns201() {
-        SupplierCategory saved = buildCategory();
-        when(supplierCategoryRepository.save(any())).thenReturn(saved);
+        when(supplierCategoryService.create(any(), eq(BRANCH_ID))).thenReturn(dummyDto());
 
         SupplierCategoryRequestDto dto = new SupplierCategoryRequestDto();
         dto.setName("Réactifs");
@@ -79,9 +73,10 @@ class SupplierCategoryControllerTest {
     }
 
     @Test
-    @DisplayName("update - ID inconnu → ResourceNotFoundException")
+    @DisplayName("update - ID inconnu → ResourceNotFoundException propagée depuis le service")
     void updateCategory_notFound_throws() {
-        when(supplierCategoryRepository.findById(CAT_ID)).thenReturn(Optional.empty());
+        when(supplierCategoryService.update(eq(CAT_ID), any()))
+                .thenThrow(new ResourceNotFoundException("Catégorie fournisseur", CAT_ID));
 
         SupplierCategoryRequestDto dto = new SupplierCategoryRequestDto();
         dto.setName("Updated");
@@ -93,9 +88,9 @@ class SupplierCategoryControllerTest {
     @Test
     @DisplayName("update - modifie name et description → 200")
     void updateCategory_updatesAndReturns200() {
-        SupplierCategory cat = buildCategory();
-        when(supplierCategoryRepository.findById(CAT_ID)).thenReturn(Optional.of(cat));
-        when(supplierCategoryRepository.save(any())).thenReturn(cat);
+        SupplierCategoryResponseDto updated = new SupplierCategoryResponseDto(
+                CAT_ID, "Matériel médical", "Description mise à jour", BRANCH_ID, null);
+        when(supplierCategoryService.update(eq(CAT_ID), any())).thenReturn(updated);
 
         SupplierCategoryRequestDto dto = new SupplierCategoryRequestDto();
         dto.setName("Matériel médical");
@@ -104,15 +99,13 @@ class SupplierCategoryControllerTest {
         ResponseEntity<?> response = controller.update(CAT_ID, dto);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(cat.getName()).isEqualTo("Matériel médical");
     }
 
     @Test
-    @DisplayName("delete - catégorie liée à des fournisseurs → InvalidOperationException")
+    @DisplayName("delete - catégorie liée à des fournisseurs → InvalidOperationException propagée")
     void deleteCategory_linkedToSuppliers_throws() {
-        SupplierCategory cat = buildCategory();
-        when(supplierCategoryRepository.findById(CAT_ID)).thenReturn(Optional.of(cat));
-        when(supplierRepository.existsBySupplierCategory(cat)).thenReturn(true);
+        doThrow(new InvalidOperationException("Impossible de supprimer une catégorie liée à des fournisseurs"))
+                .when(supplierCategoryService).delete(CAT_ID);
 
         assertThatThrownBy(() -> controller.delete(CAT_ID))
                 .isInstanceOf(InvalidOperationException.class);
@@ -121,13 +114,9 @@ class SupplierCategoryControllerTest {
     @Test
     @DisplayName("delete - catégorie sans fournisseurs → 200")
     void deleteCategory_noLinkedSuppliers_returns200() {
-        SupplierCategory cat = buildCategory();
-        when(supplierCategoryRepository.findById(CAT_ID)).thenReturn(Optional.of(cat));
-        when(supplierRepository.existsBySupplierCategory(cat)).thenReturn(false);
-
         ResponseEntity<?> response = controller.delete(CAT_ID);
 
+        verify(supplierCategoryService).delete(CAT_ID);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        verify(supplierCategoryRepository).delete(cat);
     }
 }

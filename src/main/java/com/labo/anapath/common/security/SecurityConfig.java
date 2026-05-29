@@ -9,12 +9,16 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 /**
  * Configuration principale de la sécurité Spring Security.
@@ -29,9 +33,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   <li>{@code POST /api/v1/auth/login} — connexion initiale</li>
  *   <li>{@code POST /api/v1/auth/refresh} — rafraîchissement du token</li>
  *   <li>{@code POST /api/v1/auth/2fa/challenge} — validation du code TOTP</li>
+ *   <li>{@code POST /api/v1/auth/forgot-password} — initiation de la réinitialisation du mot de passe</li>
+ *   <li>{@code POST /api/v1/auth/reset-password} — réinitialisation effective du mot de passe</li>
+ *   <li>{@code POST /api/v1/auth/resend-2fa} — renvoi du code OTP</li>
  *   <li>{@code GET /actuator/health} — sonde de santé</li>
  *   <li>{@code /v3/api-docs/**} et {@code /swagger-ui/**} — documentation OpenAPI</li>
  * </ul>
+ * <p>Les fichiers ({@code /api/v1/files/**}) requièrent une authentification JWT valide.</p>
  * <p>Tous les autres endpoints requièrent un token d'accès JWT valide.</p>
  */
 @Configuration
@@ -41,13 +49,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final CustomUserDetailsService customUserDetailsService;
+    private final CorsConfigurationSource corsConfigurationSource;
 
     /**
      * Configure la chaîne de filtres de sécurité HTTP.
      * <p>
      * Désactive CSRF (API stateless), impose une politique de session STATELESS
      * et insère le filtre JWT avant le filtre d'authentification standard de Spring.
+     * Le filtre de rate limiting est inséré avant le filtre JWT.
      * </p>
      *
      * @param http constructeur de configuration HTTP de Spring Security
@@ -58,20 +69,35 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.deny())
+                        .contentTypeOptions(Customizer.withDefaults())
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .maxAgeInSeconds(31536000)
+                                .includeSubDomains(true))
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'none'; frame-ancestors 'none'"))
+                        .referrerPolicy(ref -> ref
+                                .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/login").permitAll()
                         .requestMatchers("/api/v1/auth/refresh").permitAll()
                         .requestMatchers("/api/v1/auth/2fa/challenge").permitAll()
+                        .requestMatchers("/api/v1/auth/forgot-password").permitAll()
+                        .requestMatchers("/api/v1/auth/reset-password").permitAll()
+                        .requestMatchers("/api/v1/auth/resend-2fa").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
-                        .requestMatchers("/api/v1/files/**").permitAll()  // Fichiers locaux — protégés par obscurité UUID
+                        .requestMatchers("/api/v1/files/**").authenticated()
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
@@ -112,5 +138,19 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> reg = new FilterRegistrationBean<>(filter);
+        reg.setEnabled(false);
+        return reg;
+    }
+
+    @Bean
+    public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter filter) {
+        FilterRegistrationBean<RateLimitFilter> reg = new FilterRegistrationBean<>(filter);
+        reg.setEnabled(false);
+        return reg;
     }
 }

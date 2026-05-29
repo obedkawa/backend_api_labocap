@@ -75,7 +75,7 @@ public class NotificationServiceImpl implements NotificationService {
 
         logAction(reportId, "Appel vocal lancé", userId, report.getBranchId());
 
-        return new CallResponseDto(appelId, reportId, to, audioUrl);
+        return new CallResponseDto(appelId, reportId, audioUrl);
     }
 
     @Override
@@ -100,7 +100,7 @@ public class NotificationServiceImpl implements NotificationService {
 
         logAction(reportId, "SMS envoyé", userId, report.getBranchId());
 
-        return new SmsResponseDto(to, "sent");
+        return new SmsResponseDto("sent");
     }
 
     @Override

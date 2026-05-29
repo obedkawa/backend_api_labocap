@@ -26,6 +26,18 @@ public interface LabTestRepository extends JpaRepository<LabTest, UUID> {
      */
     Page<LabTest> findByBranchId(UUID branchId, Pageable pageable);
 
+    List<LabTest> findAllByBranchIdOrderByName(UUID branchId);
+
+    /**
+     * Recherche une analyse par son identifiant et sa succursale.
+     * Assure l'isolation multi-tenant.
+     *
+     * @param id       identifiant UUID de l'analyse
+     * @param branchId identifiant de la succursale
+     * @return l'analyse si elle appartient à la succursale, sinon vide
+     */
+    java.util.Optional<LabTest> findByIdAndBranchId(UUID id, UUID branchId);
+
     /**
      * Recherche les analyses dont le nom contient le terme donné, dans une succursale.
      * Utilisé pour l'autocomplétion dans les formulaires de demande.
@@ -74,4 +86,7 @@ public interface LabTestRepository extends JpaRepository<LabTest, UUID> {
      * @return {@code true} si la catégorie est référencée par une analyse
      */
     boolean existsByCategoryTest(CategoryTest categoryTest);
+
+    // Dashboard KPIs
+    long countByBranchId(UUID branchId);
 }

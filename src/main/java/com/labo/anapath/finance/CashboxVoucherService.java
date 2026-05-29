@@ -8,7 +8,7 @@ public interface CashboxVoucherService {
 
     PageResponse<CashboxVoucherResponseDto> findAll(int page, int size, UUID branchId);
 
-    CashboxVoucherResponseDto findById(UUID id);
+    CashboxVoucherResponseDto findById(UUID id, UUID branchId);
 
     CashboxVoucherResponseDto create(CashboxVoucherRequestDto dto, UUID branchId);
 

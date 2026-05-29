@@ -55,6 +55,13 @@ public class LabTestController {
         return ResponseEntity.ok(ApiResponse.success(labTestService.findAll(page, size, principal.getBranchId())));
     }
 
+    @GetMapping("/all")
+    @PreAuthorize("hasAuthority('view-tests')")
+    public ResponseEntity<ApiResponse<List<LabTestResponseDto>>> findAll(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(labTestService.findAll(principal.getBranchId())));
+    }
+
     /**
      * Recherche des analyses dont le nom contient le terme fourni (insensible à la casse).
      * Utilisé pour l'autocomplétion dans les formulaires de demande d'analyses.
@@ -91,7 +98,7 @@ public class LabTestController {
      * @return le DTO de l'analyse créée avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<LabTestResponseDto>> create(
             @Valid @RequestBody LabTestRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -107,7 +114,7 @@ public class LabTestController {
      * @return le DTO mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<LabTestResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody LabTestRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Analyse mise à jour", labTestService.update(id, dto)));
@@ -120,7 +127,7 @@ public class LabTestController {
      * @return réponse vide avec message de confirmation
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         labTestService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Analyse supprimée", null));

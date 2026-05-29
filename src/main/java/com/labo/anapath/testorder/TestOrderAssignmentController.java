@@ -49,7 +49,7 @@ public class TestOrderAssignmentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     public ResponseEntity<ApiResponse<AssignmentResponseDto>> create(
             @Valid @RequestBody AssignmentRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -58,7 +58,7 @@ public class TestOrderAssignmentController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     public ResponseEntity<ApiResponse<AssignmentResponseDto>> update(
             @PathVariable UUID id,
             @Valid @RequestBody AssignmentRequestDto dto) {
@@ -66,7 +66,7 @@ public class TestOrderAssignmentController {
     }
 
     @PostMapping("/{id}/details")
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     public ResponseEntity<ApiResponse<AssignmentDetailResponseDto>> addDetail(
             @PathVariable UUID id,
             @Valid @RequestBody AssignmentDetailRequestDto dto) {
@@ -81,7 +81,7 @@ public class TestOrderAssignmentController {
     }
 
     @DeleteMapping("/details/{detailId}")
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     public ResponseEntity<ApiResponse<Void>> deleteDetail(@PathVariable UUID detailId) {
         assignmentService.deleteDetail(detailId);
         return ResponseEntity.ok(ApiResponse.success("Détail supprimé", null));

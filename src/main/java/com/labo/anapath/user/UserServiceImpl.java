@@ -4,6 +4,10 @@ import com.labo.anapath.common.dto.PageResponse;
 import com.labo.anapath.common.exception.BusinessException;
 import com.labo.anapath.common.exception.DuplicateResourceException;
 import com.labo.anapath.common.exception.ResourceNotFoundException;
+import com.labo.anapath.role.Permission;
+import com.labo.anapath.role.PermissionMapper;
+import com.labo.anapath.role.PermissionRepository;
+import com.labo.anapath.role.PermissionResponseDto;
 import com.labo.anapath.role.Role;
 import com.labo.anapath.role.RoleRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +43,8 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
+    private final PermissionMapper permissionMapper;
 
     /**
      * {@inheritDoc}
@@ -56,8 +62,8 @@ public class UserServiceImpl implements UserService {
     /** {@inheritDoc} */
     @Override
     @Transactional(readOnly = true)
-    public UserResponseDto findById(UUID id) {
-        User user = userRepository.findById(id)
+    public UserResponseDto findById(UUID id, UUID branchId) {
+        User user = userRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", id));
         return userMapper.toResponseDto(user);
     }
@@ -83,7 +89,7 @@ public class UserServiceImpl implements UserService {
         user.setActive(dto.getIsActive() != null ? dto.getIsActive() : true);
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         if (dto.getRoleIds() != null && !dto.getRoleIds().isEmpty()) {
-            List<Role> roles = roleRepository.findAllById(dto.getRoleIds());
+            List<Role> roles = roleRepository.findAllByIdInAndBranchId(dto.getRoleIds(), branchId);
             user.setRoles(roles);
         }
         User saved = userRepository.save(user);
@@ -99,15 +105,15 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     @Transactional
-    public UserResponseDto update(UUID id, UserRequestDto dto) {
-        User user = userRepository.findById(id)
+    public UserResponseDto update(UUID id, UserRequestDto dto, UUID branchId) {
+        User user = userRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", id));
         if (!user.getEmail().equals(dto.getEmail()) && userRepository.existsByEmail(dto.getEmail())) {
             throw new DuplicateResourceException("Un utilisateur avec l'email '" + dto.getEmail() + "' existe déjà.");
         }
         userMapper.updateEntityFromDto(dto, user);
         if (dto.getRoleIds() != null) {
-            List<Role> roles = roleRepository.findAllById(dto.getRoleIds());
+            List<Role> roles = roleRepository.findAllByIdInAndBranchId(dto.getRoleIds(), branchId);
             user.setRoles(roles);
         }
         User updated = userRepository.save(user);
@@ -117,8 +123,8 @@ public class UserServiceImpl implements UserService {
     /** {@inheritDoc} */
     @Override
     @Transactional
-    public void delete(UUID id) {
-        User user = userRepository.findById(id)
+    public void delete(UUID id, UUID branchId) {
+        User user = userRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", id));
         userRepository.delete(user);
         log.info("Utilisateur supprimé (soft): {}", id);
@@ -132,8 +138,8 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     @Transactional
-    public void toggleStatus(UUID id) {
-        User user = userRepository.findById(id)
+    public void toggleStatus(UUID id, UUID branchId) {
+        User user = userRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", id));
         if (user.isActive()) {
             user.setActive(false);
@@ -154,8 +160,8 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     @Transactional
-    public void updatePassword(UUID id, UpdatePasswordRequest request) {
-        User user = userRepository.findById(id)
+    public void updatePassword(UUID id, UpdatePasswordRequest request, UUID branchId) {
+        User user = userRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", id));
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new BusinessException("Le mot de passe actuel est incorrect.");
@@ -163,5 +169,29 @@ public class UserServiceImpl implements UserService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         log.info("Mot de passe mis à jour pour l'utilisateur: {}", id);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Transactional(readOnly = true)
+    public List<PermissionResponseDto> getUserPermissions(UUID userId, UUID branchId) {
+        User user = userRepository.findByIdAndBranchId(userId, branchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", userId));
+        return user.getDirectPermissions().stream()
+                .map(permissionMapper::toResponseDto)
+                .toList();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Transactional
+    public void setUserPermissions(UUID userId, List<UUID> permissionIds, UUID branchId) {
+        User user = userRepository.findByIdAndBranchId(userId, branchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", userId));
+        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+        user.getDirectPermissions().clear();
+        user.getDirectPermissions().addAll(permissions);
+        userRepository.save(user);
+        log.info("Permissions directes mises à jour pour l'utilisateur: {} ({} permissions)", userId, permissions.size());
     }
 }

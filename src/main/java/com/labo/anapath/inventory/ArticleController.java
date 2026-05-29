@@ -29,7 +29,7 @@ public class ArticleController {
     private final ArticleService articleService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-inventory')")
+    @PreAuthorize("hasAuthority('view-articles')")
     public ResponseEntity<ApiResponse<ArticlePageResponseDto>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -39,7 +39,7 @@ public class ArticleController {
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasAuthority('view-inventory')")
+    @PreAuthorize("hasAuthority('view-articles')")
     public ResponseEntity<ApiResponse<List<ArticleResponseDto>>> search(
             @RequestParam String q,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -48,23 +48,23 @@ public class ArticleController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-inventory')")
+    @PreAuthorize("hasAuthority('view-articles')")
     public ResponseEntity<ApiResponse<ArticleResponseDto>> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(articleService.findById(id)));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-inventory')")
+    @PreAuthorize("hasAuthority('edit-articles')")
     public ResponseEntity<ApiResponse<ArticleResponseDto>> create(
             @Valid @RequestBody ArticleRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Article créé",
-                        articleService.create(dto, principal.getBranchId())));
+                        articleService.create(dto, principal.getBranchId(), principal.getId())));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-inventory')")
+    @PreAuthorize("hasAuthority('edit-articles')")
     public ResponseEntity<ApiResponse<ArticleResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody ArticleRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Article mis à jour",
@@ -72,7 +72,7 @@ public class ArticleController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-inventory')")
+    @PreAuthorize("hasAuthority('edit-articles')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         articleService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Article supprimé", null));

@@ -31,27 +31,70 @@ import java.util.UUID;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
-    private final MecefService mecefService;
     private final InvoiceRepository invoiceRepository;
+    private final MecefService mecefService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-finance')")
+    @PreAuthorize("hasAuthority('view-invoices')")
     public ResponseEntity<ApiResponse<PageResponse<InvoiceResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Boolean paid,
+            @RequestParam(required = false) Integer statusInvoice,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String search,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(ApiResponse.success(invoiceService.findAll(page, size, principal.getBranchId())));
+        return ResponseEntity.ok(ApiResponse.success(
+                invoiceService.findAll(page, size, principal.getBranchId(), paid, statusInvoice,
+                        startDate, endDate, search)));
+    }
+
+    @GetMapping("/stats/today")
+    @PreAuthorize("hasAuthority('view-invoices')")
+    public ResponseEntity<ApiResponse<Map<String, java.math.BigDecimal>>> getTodayStats(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        java.math.BigDecimal totalToday = invoiceService.getTotalEncashedToday(principal.getBranchId());
+        return ResponseEntity.ok(ApiResponse.success(Map.of("totalToday", totalToday)));
+    }
+
+    @GetMapping("/reports")
+    @PreAuthorize("hasAuthority('view-invoices')")
+    public ResponseEntity<ApiResponse<InvoiceReportDto>> getReports(
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        InvoiceReportDto report = invoiceService.getReports(principal.getBranchId(), year, month);
+        return ResponseEntity.ok(ApiResponse.success(report));
+    }
+
+    @GetMapping("/counts")
+    @PreAuthorize("hasAuthority('view-invoices')")
+    public ResponseEntity<ApiResponse<Map<String, Long>>> getCounts(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        long sales = invoiceRepository.countByBranchIdAndStatusInvoice(principal.getBranchId(), 0);
+        long credits = invoiceRepository.countByBranchIdAndStatusInvoice(principal.getBranchId(), 1);
+        return ResponseEntity.ok(ApiResponse.success(Map.of("sales", sales, "credits", credits)));
     }
 
     @GetMapping("/business")
-    @PreAuthorize("hasAuthority('view-finance')")
+    @PreAuthorize("hasAuthority('view-invoices')")
     public ResponseEntity<ApiResponse<BusinessDashboardDto>> getBusiness(
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.getBusinessDashboard(principal.getBranchId())));
     }
 
+    @GetMapping("/monthly-stats")
+    @PreAuthorize("hasAuthority('view-invoices')")
+    public ResponseEntity<ApiResponse<java.util.List<InvoiceMonthlyStatsDto>>> getMonthlyStats(
+            @RequestParam(required = false) Integer year,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                invoiceService.getMonthlyStats(principal.getBranchId(), year)));
+    }
+
     @GetMapping("/search")
-    @PreAuthorize("hasAuthority('view-finance')")
+    @PreAuthorize("hasAuthority('view-invoices')")
     public ResponseEntity<ApiResponse<InvoiceSearchResultDto>> searchByPeriod(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
@@ -61,13 +104,15 @@ public class InvoiceController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-finance')")
-    public ResponseEntity<ApiResponse<InvoiceResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(invoiceService.findById(id)));
+    @PreAuthorize("hasAuthority('view-invoices')")
+    public ResponseEntity<ApiResponse<InvoiceResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(invoiceService.findById(id, principal.getBranchId())));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-invoices')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<InvoiceResponseDto>> create(
             @Valid @RequestBody InvoiceRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -76,22 +121,25 @@ public class InvoiceController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-invoices')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<InvoiceResponseDto>> update(
-            @PathVariable UUID id, @Valid @RequestBody InvoiceRequestDto dto) {
-        return ResponseEntity.ok(ApiResponse.success("Facture mise à jour", invoiceService.update(id, dto)));
+            @PathVariable UUID id,
+            @Valid @RequestBody InvoiceRequestDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success("Facture mise à jour", invoiceService.update(id, dto, principal.getBranchId())));
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('manage-invoices')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<InvoiceResponseDto>> markAsPaid(
             @PathVariable UUID id,
-            @Valid @RequestBody InvoiceStatusUpdateDto dto) {
-        return ResponseEntity.ok(ApiResponse.success("Facture payée", invoiceService.markAsPaid(id, dto)));
+            @Valid @RequestBody InvoiceStatusUpdateDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success("Facture payée", invoiceService.markAsPaid(id, dto, principal.getBranchId())));
     }
 
     @PostMapping("/{id}/confirm-mecef")
-    @PreAuthorize("hasAuthority('manage-invoices')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<InvoiceResponseDto>> confirmMecef(
             @PathVariable UUID id,
             @Valid @RequestBody MecefConfirmRequestDto dto,
@@ -101,7 +149,7 @@ public class InvoiceController {
     }
 
     @PostMapping("/{id}/cancel-mecef")
-    @PreAuthorize("hasAuthority('manage-invoices')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<Void>> cancelMecef(
             @PathVariable UUID id,
             @Valid @RequestBody MecefConfirmRequestDto dto,
@@ -111,16 +159,19 @@ public class InvoiceController {
     }
 
     @GetMapping("/check-code")
-    @PreAuthorize("hasAuthority('view-finance')")
-    public ResponseEntity<ApiResponse<Map<String, Boolean>>> checkCode(@RequestParam String code) {
-        boolean exists = invoiceRepository.findFirstByCodeMecefOrCodeNormalise(code, code).isPresent();
-        return ResponseEntity.ok(ApiResponse.success(Map.of("exists", exists)));
+    @PreAuthorize("hasAuthority('view-invoices')")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> checkCode(
+            @RequestParam String code,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(Map.of("exists", invoiceService.checkCode(code, principal.getBranchId()))));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-invoices')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        invoiceService.delete(id);
+    @PreAuthorize("hasAuthority('edit-invoices')")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        invoiceService.delete(id, principal.getBranchId());
         return ResponseEntity.ok(ApiResponse.success("Facture supprimée", null));
     }
 }

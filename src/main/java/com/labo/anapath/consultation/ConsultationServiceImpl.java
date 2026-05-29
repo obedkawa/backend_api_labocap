@@ -3,7 +3,6 @@ package com.labo.anapath.consultation;
 import com.labo.anapath.common.dto.PageResponse;
 import com.labo.anapath.common.exception.ResourceNotFoundException;
 import com.labo.anapath.common.storage.FileStorageService;
-import com.labo.anapath.doctor.DoctorRepository;
 import com.labo.anapath.patient.PatientRepository;
 import com.labo.anapath.prestation.Prestation;
 import com.labo.anapath.prestation.PrestationRepository;
@@ -26,7 +25,6 @@ public class ConsultationServiceImpl implements ConsultationService {
     private final ConsultationFileRepository consultationFileRepository;
     private final TypeConsultationRepository typeConsultationRepository;
     private final PatientRepository patientRepository;
-    private final DoctorRepository doctorRepository;
     private final PrestationRepository prestationRepository;
     private final UserRepository userRepository;
     private final ConsultationMapper consultationMapper;
@@ -48,9 +46,13 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     @Override
     @Transactional(readOnly = true)
-    public ConsultationResponseDto findById(UUID id) {
-        return consultationMapper.toResponseDto(consultationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Consultation", id)));
+    public ConsultationResponseDto findById(UUID id, UUID branchId) {
+        Consultation consultation = consultationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Consultation", id));
+        if (!consultation.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Consultation", id);
+        }
+        return consultationMapper.toResponseDto(consultation);
     }
 
     @Override
@@ -81,8 +83,8 @@ public class ConsultationServiceImpl implements ConsultationService {
                     .orElseThrow(() -> new ResourceNotFoundException("TypeConsultation", dto.getTypeConsultationId())));
         }
         if (dto.getDoctorId() != null) {
-            consultation.setDoctor(doctorRepository.findById(dto.getDoctorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Médecin", dto.getDoctorId())));
+            consultation.setAttribuateDoctor(userRepository.findById(dto.getDoctorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("User/Doctor", dto.getDoctorId())));
         }
         return consultationMapper.toResponseDto(consultationRepository.save(consultation));
     }

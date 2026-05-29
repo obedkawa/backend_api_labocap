@@ -8,6 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -55,6 +56,16 @@ public class SettingServiceImpl implements SettingService {
                 });
         setting.setValue(dto.getValue());
         return settingMapper.toResponseDto(settingRepository.save(setting));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Transactional
+    public void bulkUpsert(List<SettingRequestDto> settings, UUID branchId) {
+        for (SettingRequestDto dto : settings) {
+            upsert(dto, branchId);
+        }
+        log.info("Bulk upsert de {} paramètre(s) pour la branche {}", settings.size(), branchId);
     }
 
     /** {@inheritDoc} */

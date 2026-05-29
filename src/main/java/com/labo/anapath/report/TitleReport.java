@@ -25,4 +25,8 @@ public class TitleReport extends AuditableEntity {
     /** Libellé du titre de section (ex. "MACROSCOPIE", "CONCLUSION"). */
     @Column(name = "name", nullable = false, length = 300)
     private String name;
+
+    /** Indique si ce titre est le titre par défaut. Un seul titre peut être par défaut à la fois. */
+    @Column(name = "is_default", nullable = false)
+    private boolean isDefault = false;
 }

@@ -75,23 +75,158 @@ public class TestOrderController {
             @RequestParam(required = false) TestOrderStatus status,
             @RequestParam(required = false) UUID patientId,
             @RequestParam(required = false) UUID doctorId,
+            @RequestParam(required = false) UUID attribuateDoctorId,
             @RequestParam(required = false) UUID hospitalId,
             @RequestParam(required = false) Boolean isUrgent,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) UUID contratId,
+            @RequestParam(required = false) UUID typeOrderId,
             @AuthenticationPrincipal UserPrincipal principal) {
         TestOrderFilterDto filter = new TestOrderFilterDto();
         filter.setStatus(status);
         filter.setPatientId(patientId);
         filter.setDoctorId(doctorId);
+        filter.setAttribuateDoctorId(attribuateDoctorId);
         filter.setHospitalId(hospitalId);
         filter.setIsUrgent(isUrgent);
         filter.setFrom(from);
         filter.setTo(to);
         filter.setSearch(search);
+        filter.setContratId(contratId);
+        filter.setTypeOrderId(typeOrderId);
         return ResponseEntity.ok(ApiResponse.success(testOrderService.findAll(page, size, filter, principal.getBranchId())));
     }
+
+    // -------------------------------------------------------------------------
+    // Immunohistochimie
+    // -------------------------------------------------------------------------
+
+    /**
+     * Retourne la liste paginée des bons d'examen de la section Immunohistochimie
+     * (types {@code immuno-interne} et {@code immuno-exterme}), filtrée selon
+     * les critères optionnels fournis en paramètres de requête.
+     *
+     * @param page                numéro de page (0-based, défaut 0)
+     * @param size                taille de la page (défaut 20)
+     * @param status              filtre sur le statut du bon
+     * @param isUrgent            filtre sur l'urgence
+     * @param from                date de prélèvement minimale (inclusif)
+     * @param to                  date de prélèvement maximale (inclusif)
+     * @param search              recherche textuelle sur le code du bon
+     * @param contratId           filtre sur le contrat
+     * @param attribuateDoctorId  filtre sur le pathologiste assigné
+     * @param principal           principal Spring Security contenant le branchId
+     * @return page de {@link TestOrderResponseDto}
+     */
+    @GetMapping("/immuno")
+    @PreAuthorize("hasAuthority('view-test-orders')")
+    public ResponseEntity<ApiResponse<PageResponse<TestOrderResponseDto>>> findAllImmuno(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) TestOrderStatus status,
+            @RequestParam(required = false) Boolean isUrgent,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) UUID contratId,
+            @RequestParam(required = false) UUID attribuateDoctorId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        TestOrderFilterDto filter = new TestOrderFilterDto();
+        filter.setStatus(status);
+        filter.setIsUrgent(isUrgent);
+        filter.setFrom(from);
+        filter.setTo(to);
+        filter.setSearch(search);
+        filter.setContratId(contratId);
+        filter.setAttribuateDoctorId(attribuateDoctorId);
+        return ResponseEntity.ok(ApiResponse.success(
+                testOrderService.findAllImmuno(page, size, filter, principal.getBranchId())));
+    }
+
+    /**
+     * Retourne le nombre de bons immuno dont le rapport est en statut DRAFT
+     * (ou inexistant), pour alimenter le badge sidebar.
+     *
+     * @param principal principal Spring Security contenant le branchId
+     * @return objet JSON {@code { "count": N }}
+     */
+    @GetMapping("/immuno/count-pending")
+    @PreAuthorize("hasAuthority('view-test-orders')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Long>>> countImmunoPending(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        long count = testOrderService.countImmunoPending(principal.getBranchId());
+        return ResponseEntity.ok(ApiResponse.success(java.util.Map.of("count", count)));
+    }
+
+    // -------------------------------------------------------------------------
+    // Myspace
+    // -------------------------------------------------------------------------
+
+    /**
+     * Retourne les statistiques des bons d'examen assignés à l'utilisateur connecté.
+     *
+     * @param principal principal Spring Security contenant userId et branchId
+     * @return DTO de statistiques (total, pending, validated, urgent, late)
+     */
+    @GetMapping("/myspace/stats")
+    @PreAuthorize("hasAuthority('view-test-order-assignments')")
+    public ResponseEntity<ApiResponse<MyspaceStatsDto>> getMyspaceStats(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                testOrderService.getMyspaceStats(principal.getId(), principal.getBranchId())));
+    }
+
+    /**
+     * Retourne la liste paginée des bons d'examen assignés à l'utilisateur connecté.
+     *
+     * @param page      numéro de page (0-based, défaut 0)
+     * @param size      taille de la page (défaut 20)
+     * @param status    filtre optionnel sur le statut du bon
+     * @param search    recherche textuelle optionnelle (code du bon ou nom du patient)
+     * @param principal principal Spring Security contenant userId et branchId
+     * @return page de {@link TestOrderResponseDto}
+     */
+    @GetMapping("/myspace/orders")
+    @PreAuthorize("hasAuthority('view-test-order-assignments')")
+    public ResponseEntity<ApiResponse<PageResponse<TestOrderResponseDto>>> getMyspaceOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) TestOrderStatus status,
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                testOrderService.getMyspaceOrders(
+                        principal.getId(), principal.getBranchId(), page, size, status, search)));
+    }
+
+    // -------------------------------------------------------------------------
+    // Tarification contractuelle
+    // -------------------------------------------------------------------------
+
+    /**
+     * Retourne la tarification d'une analyse pour un contrat donné.
+     *
+     * <p>Si l'analyse est référencée dans le contrat, retourne le prix négocié et la remise.
+     * Sinon, retourne le prix catalogue avec remise nulle.
+     *
+     * @param contratId identifiant UUID du contrat
+     * @param labTestId identifiant UUID de l'analyse
+     * @param principal principal Spring Security contenant le branchId
+     * @return DTO de tarification ({@link DiscountDto})
+     */
+    @GetMapping("/discount")
+    @PreAuthorize("hasAuthority('view-test-orders')")
+    public ResponseEntity<ApiResponse<DiscountDto>> getDiscount(
+            @RequestParam UUID contratId,
+            @RequestParam UUID labTestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                testOrderService.getDiscount(contratId, labTestId, principal.getBranchId())));
+    }
+
+    // -------------------------------------------------------------------------
 
     /**
      * Retourne le détail d'un bon d'examen par son identifiant.
@@ -188,13 +323,16 @@ public class TestOrderController {
      * <p>Seuls les bons au statut VALIDATED peuvent être livrés. Positionne également
      * {@code report.isDelivered = true} sur le compte-rendu associé.
      *
-     * @param id identifiant UUID du bon à livrer
+     * @param id        identifiant UUID du bon à livrer
+     * @param principal principal Spring Security contenant le branchId
      * @return le bon mis à jour
      */
     @PostMapping("/{id}/deliver")
     @PreAuthorize("hasAuthority('deliver-reports')")
-    public ResponseEntity<ApiResponse<TestOrderResponseDto>> deliver(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success("Bon livré", testOrderService.markAsDelivered(id)));
+    public ResponseEntity<ApiResponse<TestOrderResponseDto>> deliver(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success("Bon livré", testOrderService.markAsDelivered(id, principal.getBranchId())));
     }
 
     /**
@@ -212,21 +350,26 @@ public class TestOrderController {
     @PreAuthorize("hasAuthority('edit-test-orders')")
     public ResponseEntity<ApiResponse<List<String>>> uploadImages(
             @PathVariable UUID id,
-            @RequestParam("files_name") List<MultipartFile> files) {
-        return ResponseEntity.ok(ApiResponse.success(testOrderService.uploadImages(id, files)));
+            @RequestParam("files_name") List<MultipartFile> files,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(testOrderService.uploadImages(id, principal.getBranchId(), files)));
     }
 
     @GetMapping("/{id}/images")
     @PreAuthorize("hasAuthority('view-test-orders')")
-    public ResponseEntity<ApiResponse<List<ImageDto>>> getImages(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(testOrderService.getImages(id)));
+    public ResponseEntity<ApiResponse<List<ImageDto>>> getImages(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(testOrderService.getImages(id, principal.getBranchId())));
     }
 
     @DeleteMapping("/{id}/images/{index}")
     @PreAuthorize("hasAuthority('edit-test-orders')")
     public ResponseEntity<ApiResponse<Void>> deleteImage(
-            @PathVariable UUID id, @PathVariable int index) {
-        testOrderService.deleteImage(id, index);
+            @PathVariable UUID id,
+            @PathVariable int index,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        testOrderService.deleteImage(id, index, principal.getBranchId());
         return ResponseEntity.ok(ApiResponse.success("Image supprimée", null));
     }
 

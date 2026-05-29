@@ -1,6 +1,7 @@
 package com.labo.anapath.inventory;
 
 import com.labo.anapath.common.exception.ResourceNotFoundException;
+import com.labo.anapath.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ class ArticleServiceTest {
     @Mock ArticleRepository articleRepository;
     @Mock SupplierRepository supplierRepository;
     @Mock MovementRepository movementRepository;
+    @Mock UserRepository userRepository;
     @Mock InventoryMapper inventoryMapper;
 
     ArticleServiceImpl service;
@@ -40,7 +42,7 @@ class ArticleServiceTest {
 
     @BeforeEach
     void setup() {
-        service = new ArticleServiceImpl(articleRepository, supplierRepository, movementRepository, inventoryMapper);
+        service = new ArticleServiceImpl(articleRepository, supplierRepository, movementRepository, userRepository, inventoryMapper);
     }
 
     private Article buildArticle() {
@@ -51,6 +53,11 @@ class ArticleServiceTest {
         return a;
     }
 
+    private ArticleResponseDto dummyArticleDto(BigDecimal qty) {
+        return new ArticleResponseDto(ARTICLE_ID, "Réactif HIV", null, qty,
+                BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null, null, null, null);
+    }
+
     @Test
     @DisplayName("create - avec initialQuantity > 0 → article et mouvement IN créés")
     void create_withInitialQuantity_shouldCreateArticleAndMovement() {
@@ -58,15 +65,13 @@ class ArticleServiceTest {
         saved.setQuantity(new BigDecimal("10"));
         when(articleRepository.save(any())).thenReturn(saved);
         when(inventoryMapper.toArticleEntity(any())).thenReturn(new Article());
-        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
-                new ArticleResponseDto(ARTICLE_ID, "Réactif HIV", null,
-                        new BigDecimal("10"), BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(dummyArticleDto(new BigDecimal("10")));
 
         ArticleRequestDto dto = new ArticleRequestDto();
         dto.setName("Réactif HIV");
         dto.setInitialQuantity(new BigDecimal("10"));
 
-        ArticleResponseDto result = service.create(dto, BRANCH_ID);
+        ArticleResponseDto result = service.create(dto, BRANCH_ID, null);
 
         assertThat(result).isNotNull();
         verify(movementRepository).save(any(Movement.class));
@@ -78,16 +83,55 @@ class ArticleServiceTest {
         Article saved = buildArticle();
         when(articleRepository.save(any())).thenReturn(saved);
         when(inventoryMapper.toArticleEntity(any())).thenReturn(new Article());
-        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
-                new ArticleResponseDto(ARTICLE_ID, "Gants", null,
-                        BigDecimal.ZERO, BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(dummyArticleDto(BigDecimal.ZERO));
 
         ArticleRequestDto dto = new ArticleRequestDto();
         dto.setName("Gants");
 
-        service.create(dto, BRANCH_ID);
+        service.create(dto, BRANCH_ID, null);
 
         verify(movementRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("create - avec initialQuantity et userId → mouvement tracé avec user")
+    void create_withInitialQuantityAndUserId_tracksUser() {
+        UUID userId = UUID.randomUUID();
+        Article saved = buildArticle();
+        saved.setQuantity(new BigDecimal("5"));
+        com.labo.anapath.user.User user = new com.labo.anapath.user.User();
+        when(articleRepository.save(any())).thenReturn(saved);
+        when(inventoryMapper.toArticleEntity(any())).thenReturn(new Article());
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(dummyArticleDto(new BigDecimal("5")));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        ArticleRequestDto dto = new ArticleRequestDto();
+        dto.setName("Réactif");
+        dto.setInitialQuantity(new BigDecimal("5"));
+
+        service.create(dto, BRANCH_ID, userId);
+
+        verify(userRepository).findById(userId);
+        verify(movementRepository).save(any(Movement.class));
+    }
+
+    @Test
+    @DisplayName("create - nouveaux champs description/lotNumber/expirationDate persistés")
+    void create_newFields_arePersisted() {
+        Article captured = new Article();
+        when(inventoryMapper.toArticleEntity(any())).thenReturn(captured);
+        when(articleRepository.save(any())).thenReturn(captured);
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(dummyArticleDto(BigDecimal.ZERO));
+
+        ArticleRequestDto dto = new ArticleRequestDto();
+        dto.setName("Sérum");
+        dto.setDescription("Sérum pour tests VIH");
+        dto.setLotNumber("LOT-2025-001");
+
+        service.create(dto, BRANCH_ID, null);
+
+        assertThat(captured.getDescription()).isEqualTo("Sérum pour tests VIH");
+        assertThat(captured.getLotNumber()).isEqualTo("LOT-2025-001");
     }
 
     @Test
@@ -97,9 +141,7 @@ class ArticleServiceTest {
         article.setQuantity(new BigDecimal("50"));
         when(articleRepository.findById(ARTICLE_ID)).thenReturn(Optional.of(article));
         when(articleRepository.save(any())).thenReturn(article);
-        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
-                new ArticleResponseDto(ARTICLE_ID, "Updated", null,
-                        new BigDecimal("50"), BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(dummyArticleDto(new BigDecimal("50")));
 
         ArticleRequestDto dto = new ArticleRequestDto();
         dto.setName("Updated");
@@ -118,9 +160,7 @@ class ArticleServiceTest {
         when(articleRepository.findByBranchId(eq(BRANCH_ID), any(Pageable.class))).thenReturn(page);
         when(articleRepository.countByBranchIdAndQuantity(BRANCH_ID, BigDecimal.ZERO)).thenReturn(3L);
         when(articleRepository.countLowStock(BRANCH_ID)).thenReturn(2L);
-        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
-                new ArticleResponseDto(ARTICLE_ID, "Réactif", null,
-                        BigDecimal.ZERO, BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(dummyArticleDto(BigDecimal.ZERO));
 
         ArticlePageResponseDto result = service.findAll(0, 20, BRANCH_ID);
 
@@ -143,9 +183,7 @@ class ArticleServiceTest {
         Article a = buildArticle();
         when(articleRepository.findByBranchIdAndNameContainingIgnoreCase(BRANCH_ID, "réactif"))
                 .thenReturn(List.of(a));
-        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(
-                new ArticleResponseDto(ARTICLE_ID, "Réactif HIV", null,
-                        BigDecimal.ZERO, BigDecimal.ZERO, null, BigDecimal.ZERO, null, null, BRANCH_ID, null));
+        when(inventoryMapper.toArticleResponseDto(any())).thenReturn(dummyArticleDto(BigDecimal.ZERO));
 
         List<ArticleResponseDto> result = service.search("réactif", BRANCH_ID);
 

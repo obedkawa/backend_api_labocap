@@ -2,6 +2,7 @@ package com.labo.anapath.test;
 
 import com.labo.anapath.common.dto.PageResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -20,6 +21,8 @@ public interface UnitMeasurementService {
      * @return page de DTOs d'unités de mesure
      */
     PageResponse<UnitMeasurementResponseDto> findAll(int page, int size, UUID branchId);
+
+    List<UnitMeasurementResponseDto> findAll(UUID branchId);
 
     /**
      * Recherche une unité de mesure par son identifiant.

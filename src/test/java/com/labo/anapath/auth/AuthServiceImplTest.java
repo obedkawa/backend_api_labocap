@@ -119,7 +119,6 @@ class AuthServiceImplTest {
         assertThat(response).isNotNull();
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
-        assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.expiresIn()).isEqualTo(86_400L);
         assertThat(response.user().email()).isEqualTo("admin@test.com");
         assertThat(response.requires2fa()).isNull();
@@ -270,10 +269,7 @@ class AuthServiceImplTest {
         when(jwtTokenProvider.extractJti(token)).thenReturn(jti);
         when(tokenBlacklistService.isBlacklisted(jti)).thenReturn(true);
 
-        RefreshTokenRequest request = new RefreshTokenRequest();
-        request.setRefreshToken(token);
-
-        assertThatThrownBy(() -> authService.refresh(request))
+        assertThatThrownBy(() -> authService.refresh(token))
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessageContaining("révoqué");
     }

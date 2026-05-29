@@ -66,8 +66,8 @@ public class PatientServiceImpl implements PatientService {
 
     @Override
     @Transactional(readOnly = true)
-    public PatientResponseDto findById(UUID id) {
-        Patient patient = patientRepository.findById(id)
+    public PatientResponseDto findById(UUID id, UUID branchId) {
+        Patient patient = patientRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", id));
         return patientMapper.toResponseDto(patient);
     }
@@ -94,20 +94,20 @@ public class PatientServiceImpl implements PatientService {
 
     @Override
     @Transactional
-    public PatientResponseDto update(UUID id, PatientRequestDto dto) {
-        Patient patient = patientRepository.findById(id)
+    public PatientResponseDto update(UUID id, PatientRequestDto dto, UUID branchId) {
+        Patient patient = patientRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", id));
         // Vérifier le code uniquement s'il change réellement
         if (StringUtils.hasText(dto.getCode())
                 && !dto.getCode().equals(patient.getCode())
-                && patientRepository.existsByCodeAndBranchIdAndIdNot(dto.getCode(), patient.getBranchId(), id)) {
+                && patientRepository.existsByCodeAndBranchIdAndIdNot(dto.getCode(), branchId, id)) {
             throw new DuplicateResourceException(
                     "Un patient avec le code '" + dto.getCode() + "' existe déjà.");
         }
         // Vérifier le téléphone uniquement s'il change réellement
         if (StringUtils.hasText(dto.getTelephone1())
                 && !dto.getTelephone1().equals(patient.getTelephone1())
-                && patientRepository.existsByTelephone1AndBranchId(dto.getTelephone1(), patient.getBranchId())) {
+                && patientRepository.existsByTelephone1AndBranchId(dto.getTelephone1(), branchId)) {
             throw new DuplicateResourceException(
                     "Un patient avec le téléphone '" + dto.getTelephone1() + "' existe déjà dans cette agence.");
         }
@@ -117,8 +117,8 @@ public class PatientServiceImpl implements PatientService {
 
     @Override
     @Transactional
-    public void delete(UUID id) {
-        Patient patient = patientRepository.findById(id)
+    public void delete(UUID id, UUID branchId) {
+        Patient patient = patientRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", id));
         // Interdire la suppression si des demandes d'examen référencent ce patient
         if (testOrderRepository.existsByPatient(patient)) {
@@ -130,8 +130,8 @@ public class PatientServiceImpl implements PatientService {
 
     @Override
     @Transactional(readOnly = true)
-    public PatientProfileDto getProfile(UUID id) {
-        Patient patient = patientRepository.findById(id)
+    public PatientProfileDto getProfile(UUID id, UUID branchId) {
+        Patient patient = patientRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", id));
 
         List<TestOrder> orders = testOrderRepository.findByPatientOrderByCreatedAtDesc(patient);

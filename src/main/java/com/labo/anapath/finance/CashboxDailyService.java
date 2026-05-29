@@ -10,7 +10,7 @@ public interface CashboxDailyService {
 
     PageResponse<CashboxDailyResponseDto> findAll(int page, int size, UUID branchId);
 
-    CashboxDailyResponseDto findById(UUID id);
+    CashboxDailyResponseDto findById(UUID id, UUID branchId);
 
     CashboxDailyResponseDto closeCashbox(UUID id, CashboxDailyCloseDto dto, UUID userId);
 

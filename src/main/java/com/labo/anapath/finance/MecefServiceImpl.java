@@ -40,6 +40,7 @@ public class MecefServiceImpl implements MecefService {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Facture", invoiceId));
 
+        log.info("Appel MECeF confirm — invoiceId={}, uid={}", invoiceId, uid);
         MecefApiResponse mecefResponse;
         try {
             mecefResponse = callMecef(uid + "/confirm", setting.getToken(), HttpMethod.PUT, MecefApiResponse.class);
@@ -57,6 +58,8 @@ public class MecefServiceImpl implements MecefService {
             invoice.setNim(mecefResponse.getNim());
             invoice.setQrcode(mecefResponse.getQrCode());
         }
+        log.info("MECeF confirm réussi — invoiceId={}, codeMecef={}", invoiceId,
+                mecefResponse != null ? mecefResponse.getCodeMECeFDGI() : "N/A");
 
         return financeMapper.toInvoiceResponseDto(invoiceRepository.save(invoice));
     }
@@ -66,16 +69,18 @@ public class MecefServiceImpl implements MecefService {
     public void cancelInvoice(UUID invoiceId, String uid, UUID branchId) {
         SettingInvoice setting = requireMecefEnabled(branchId);
 
+        log.info("Appel MECeF cancel — invoiceId={}, uid={}", invoiceId, uid);
         try {
             callMecef(uid + "/cancel", setting.getToken(), HttpMethod.PUT, Void.class);
         } catch (RestClientException e) {
             log.error("MECeF cancel API indisponible: {}", e.getMessage());
             throw new ExternalApiException("MECeF indisponible", e);
         }
+        log.info("MECeF cancel réussi — invoiceId={}", invoiceId);
     }
 
     private SettingInvoice requireMecefEnabled(UUID branchId) {
-        SettingInvoice setting = settingInvoiceRepository.findByBranchId(branchId)
+        SettingInvoice setting = settingInvoiceRepository.findFirstByBranchId(branchId)
                 .orElseThrow(() -> new InvalidOperationException("MECEF_DISABLED"));
         if (!Boolean.TRUE.equals(setting.getStatus())) {
             throw new InvalidOperationException("MECEF_DISABLED");

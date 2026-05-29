@@ -17,5 +17,13 @@ public interface InventoryMapper {
 
     @Mapping(target = "articleId", source = "article.id")
     @Mapping(target = "articleName", source = "article.name")
+    @Mapping(target = "userId", source = "user.id")
+    @Mapping(target = "userFullName", expression = "java(movement.getUser() != null ? movement.getUser().getFirstname() + ' ' + movement.getUser().getLastname() : null)")
     MovementResponseDto toMovementResponseDto(Movement movement);
+
+    @Mapping(target = "categoryId", source = "supplierCategory.id")
+    @Mapping(target = "categoryName", source = "supplierCategory.name")
+    SupplierResponseDto toSupplierResponseDto(Supplier supplier);
+
+    SupplierCategoryResponseDto toSupplierCategoryResponseDto(SupplierCategory category);
 }

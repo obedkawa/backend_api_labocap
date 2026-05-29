@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -53,6 +54,13 @@ public class TypeOrderController {
         return ResponseEntity.ok(ApiResponse.success(typeOrderService.findAll(page, size, principal.getBranchId())));
     }
 
+    @GetMapping("/all")
+    @PreAuthorize("hasAuthority('view-tests')")
+    public ResponseEntity<ApiResponse<List<TypeOrderResponseDto>>> findAll(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(typeOrderService.findAll(principal.getBranchId())));
+    }
+
     /**
      * Retourne un type de bon par son identifiant unique.
      *
@@ -73,7 +81,7 @@ public class TypeOrderController {
      * @return le DTO du type créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<TypeOrderResponseDto>> create(
             @Valid @RequestBody TypeOrderRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -89,7 +97,7 @@ public class TypeOrderController {
      * @return le DTO mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<TypeOrderResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody TypeOrderRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Type mis à jour", typeOrderService.update(id, dto)));
@@ -102,7 +110,7 @@ public class TypeOrderController {
      * @return réponse vide avec message de confirmation
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         typeOrderService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Type supprimé", null));

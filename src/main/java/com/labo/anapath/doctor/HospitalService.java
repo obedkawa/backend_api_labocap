@@ -24,13 +24,14 @@ public interface HospitalService {
     PageResponse<HospitalResponseDto> findAll(int page, int size, UUID branchId);
 
     /**
-     * Recherche un hôpital par son identifiant unique.
+     * Recherche un hôpital par son identifiant unique, en vérifiant qu'il appartient à l'agence.
      *
-     * @param id identifiant UUID de l'hôpital
+     * @param id       identifiant UUID de l'hôpital
+     * @param branchId identifiant de l'agence de l'utilisateur connecté
      * @return le DTO de l'hôpital
-     * @throws com.labo.anapath.common.exception.ResourceNotFoundException si l'hôpital n'existe pas
+     * @throws com.labo.anapath.common.exception.ResourceNotFoundException si l'hôpital n'existe pas ou n'appartient pas à l'agence
      */
-    HospitalResponseDto findById(UUID id);
+    HospitalResponseDto findById(UUID id, UUID branchId);
 
     /**
      * Crée un nouvel hôpital rattaché à l'agence spécifiée.

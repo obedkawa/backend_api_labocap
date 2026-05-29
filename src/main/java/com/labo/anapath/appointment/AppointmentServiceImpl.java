@@ -46,9 +46,13 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional(readOnly = true)
-    public AppointmentResponseDto findById(UUID id) {
-        return appointmentMapper.toResponseDto(appointmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Appointment", id)));
+    public AppointmentResponseDto findById(UUID id, UUID branchId) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", id));
+        if (!appointment.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Appointment", id);
+        }
+        return appointmentMapper.toResponseDto(appointment);
     }
 
     @Override
@@ -71,9 +75,12 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional
-    public AppointmentResponseDto update(UUID id, AppointmentRequestDto dto) {
+    public AppointmentResponseDto update(UUID id, AppointmentRequestDto dto, UUID branchId) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment", id));
+        if (!appointment.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Appointment", id);
+        }
         appointment.setPatient(patientRepository.findById(dto.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", dto.getPatientId())));
         if (dto.getDoctorId() != null) {
@@ -90,9 +97,12 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional
-    public void delete(UUID id) {
+    public void delete(UUID id, UUID branchId) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment", id));
+        if (!appointment.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Appointment", id);
+        }
         appointmentRepository.delete(appointment);
     }
 

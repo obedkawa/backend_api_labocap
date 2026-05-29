@@ -2,6 +2,7 @@ package com.labo.anapath.common.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -73,12 +74,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
                 String jti = jwtTokenProvider.extractJti(jwt);
                 if (jti != null && tokenBlacklistService.isBlacklisted(jti)) {
-                    // Token révoqué après logout : on laisse passer sans authentification
-                    filterChain.doFilter(request, response);
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token révoqué");
                     return;
                 }
                 UUID userId = jwtTokenProvider.extractUserId(jwt);
                 UserDetails userDetails = customUserDetailsService.loadUserById(userId);
+                if (!userDetails.isEnabled()) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Compte désactivé");
+                    return;
+                }
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -91,12 +95,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Extrait le token JWT brut depuis l'en-tête {@code Authorization: Bearer <token>}.
+     * Extrait le token JWT depuis la requête.
+     * <p>
+     * Priorité 1 : cookie {@code access_token} (HttpOnly — navigateurs web).<br>
+     * Priorité 2 : en-tête {@code Authorization: Bearer} (clients mobiles / API tiers).
+     * </p>
      *
      * @param request requête HTTP
-     * @return le token JWT sans le préfixe "Bearer ", ou {@code null} si l'en-tête est absent ou malformé
+     * @return le token JWT brut, ou {@code null} si absent
      */
     private String getJwtFromRequest(HttpServletRequest request) {
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("access_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);

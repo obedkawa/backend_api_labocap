@@ -3,6 +3,7 @@ package com.labo.anapath.contract;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -14,4 +15,13 @@ import java.util.UUID;
  */
 @Repository
 public interface DetailsContratRepository extends JpaRepository<DetailsContrat, UUID> {
+
+    /**
+     * Recherche la ligne tarifaire correspondant à un couple contrat / analyse.
+     *
+     * @param contratId  identifiant du contrat
+     * @param labTestId  identifiant de l'analyse
+     * @return la ligne tarifaire si elle existe, sinon {@link Optional#empty()}
+     */
+    Optional<DetailsContrat> findByContratIdAndLabTestId(UUID contratId, UUID labTestId);
 }

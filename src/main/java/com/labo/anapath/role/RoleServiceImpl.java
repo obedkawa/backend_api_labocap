@@ -50,8 +50,8 @@ public class RoleServiceImpl implements RoleService {
     /** {@inheritDoc} */
     @Override
     @Transactional(readOnly = true)
-    public RoleResponseDto findById(UUID id) {
-        Role role = roleRepository.findById(id)
+    public RoleResponseDto findById(UUID id, UUID branchId) {
+        Role role = roleRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Rôle", id));
         return roleMapper.toResponseDto(role);
     }
@@ -89,8 +89,8 @@ public class RoleServiceImpl implements RoleService {
      */
     @Override
     @Transactional
-    public RoleResponseDto update(UUID id, RoleRequestDto dto) {
-        Role role = roleRepository.findById(id)
+    public RoleResponseDto update(UUID id, RoleRequestDto dto, UUID branchId) {
+        Role role = roleRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Rôle", id));
         String oldSlug = role.getSlug();
         roleMapper.updateEntityFromDto(dto, role);
@@ -110,8 +110,8 @@ public class RoleServiceImpl implements RoleService {
     /** {@inheritDoc} */
     @Override
     @Transactional
-    public void delete(UUID id) {
-        Role role = roleRepository.findById(id)
+    public void delete(UUID id, UUID branchId) {
+        Role role = roleRepository.findByIdAndBranchId(id, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Rôle", id));
         roleRepository.delete(role);
         log.info("Rôle supprimé: {}", id);
@@ -120,8 +120,8 @@ public class RoleServiceImpl implements RoleService {
     /** {@inheritDoc} */
     @Override
     @Transactional
-    public RoleResponseDto assignPermissions(UUID roleId, List<UUID> permissionIds) {
-        Role role = roleRepository.findById(roleId)
+    public RoleResponseDto assignPermissions(UUID roleId, List<UUID> permissionIds, UUID branchId) {
+        Role role = roleRepository.findByIdAndBranchId(roleId, branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Rôle", roleId));
         List<Permission> permissions = permissionRepository.findAllById(permissionIds);
         role.setPermissions(permissions);

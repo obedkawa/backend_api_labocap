@@ -3,8 +3,11 @@ package com.labo.anapath.test;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,6 +28,18 @@ public interface TypeOrderRepository extends JpaRepository<TypeOrder, UUID> {
      * @return page de types de bons
      */
     Page<TypeOrder> findByBranchId(UUID branchId, Pageable pageable);
+
+    List<TypeOrder> findAllByBranchIdOrderByTitle(UUID branchId);
+
+    /**
+     * Recherche un type de bon par son identifiant et sa succursale.
+     * Assure l'isolation multi-tenant.
+     *
+     * @param id       identifiant UUID du type de bon
+     * @param branchId identifiant de la succursale
+     * @return le type de bon s'il appartient à la succursale, sinon vide
+     */
+    java.util.Optional<TypeOrder> findByIdAndBranchId(UUID id, UUID branchId);
 
     /**
      * Recherche un type de bon par son slug technique.
@@ -55,4 +70,17 @@ public interface TypeOrderRepository extends JpaRepository<TypeOrder, UUID> {
      * @return {@code true} si le slug est déjà utilisé par un autre type
      */
     boolean existsBySlugIgnoreCaseAndBranchIdAndIdNot(String slug, UUID branchId, UUID id);
+
+    /**
+     * Retourne les identifiants des types de bons immuno (slugs
+     * {@code immuno-interne} et {@code immuno-exterme}) pour une branche.
+     *
+     * <p>Utilisé pour filtrer les bons d'examen de la section Immunohistochimie.</p>
+     *
+     * @param branchId identifiant de la succursale
+     * @return liste d'UUID des types immuno (vide si aucun)
+     */
+    @Query("SELECT t.id FROM TypeOrder t WHERE t.branchId = :branchId " +
+            "AND LOWER(t.slug) IN ('immuno-interne', 'immuno-exterme')")
+    List<UUID> findImmunoTypeIds(@Param("branchId") UUID branchId);
 }

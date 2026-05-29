@@ -71,8 +71,12 @@ public class CashboxDailyServiceImpl implements CashboxDailyService {
 
     @Override
     @Transactional(readOnly = true)
-    public CashboxDailyResponseDto findById(UUID id) {
-        return toDto(findDaily(id));
+    public CashboxDailyResponseDto findById(UUID id, UUID branchId) {
+        CashboxDaily daily = findDaily(id);
+        if (!daily.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Session caisse", id);
+        }
+        return toDto(daily);
     }
 
     @Override

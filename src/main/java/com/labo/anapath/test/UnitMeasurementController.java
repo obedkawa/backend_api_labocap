@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -53,6 +54,13 @@ public class UnitMeasurementController {
         return ResponseEntity.ok(ApiResponse.success(unitMeasurementService.findAll(page, size, principal.getBranchId())));
     }
 
+    @GetMapping("/all")
+    @PreAuthorize("hasAuthority('view-tests')")
+    public ResponseEntity<ApiResponse<List<UnitMeasurementResponseDto>>> findAll(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(unitMeasurementService.findAll(principal.getBranchId())));
+    }
+
     /**
      * Retourne une unité de mesure par son identifiant unique.
      *
@@ -73,7 +81,7 @@ public class UnitMeasurementController {
      * @return le DTO de l'unité créée avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<UnitMeasurementResponseDto>> create(
             @Valid @RequestBody UnitMeasurementRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -89,7 +97,7 @@ public class UnitMeasurementController {
      * @return le DTO mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<UnitMeasurementResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody UnitMeasurementRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Unité mise à jour", unitMeasurementService.update(id, dto)));
@@ -103,7 +111,7 @@ public class UnitMeasurementController {
      * @return réponse vide avec message de confirmation
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         unitMeasurementService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Unité supprimée", null));

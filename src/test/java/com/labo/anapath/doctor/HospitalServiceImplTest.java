@@ -109,7 +109,7 @@ class HospitalServiceImplTest {
         when(hospitalRepository.findById(HOSPITAL_ID)).thenReturn(Optional.of(hospital));
         when(hospitalMapper.toResponseDto(hospital)).thenReturn(dto);
 
-        HospitalResponseDto result = hospitalService.findById(HOSPITAL_ID);
+        HospitalResponseDto result = hospitalService.findById(HOSPITAL_ID, BRANCH_ID);
 
         assertThat(result.name()).isEqualTo("CHU de Cotonou");
     }
@@ -119,7 +119,7 @@ class HospitalServiceImplTest {
     void findById_notFound_throws404() {
         when(hospitalRepository.findById(HOSPITAL_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> hospitalService.findById(HOSPITAL_ID))
+        assertThatThrownBy(() -> hospitalService.findById(HOSPITAL_ID, BRANCH_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 

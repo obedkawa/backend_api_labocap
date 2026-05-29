@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public interface ContratService {
 
-    PageResponse<ContratResponseDto> findAll(int page, int size, UUID branchId);
+    PageResponse<ContratResponseDto> findAll(int page, int size, UUID branchId, String status, String search, String dateFrom, String dateTo);
 
     ContratResponseDto findById(UUID id);
 

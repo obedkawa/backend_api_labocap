@@ -2,24 +2,63 @@ package com.labo.anapath.finance;
 
 import com.labo.anapath.common.dto.PageResponse;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public interface InvoiceService {
 
     PageResponse<InvoiceResponseDto> findAll(int page, int size, UUID branchId);
+    PageResponse<InvoiceResponseDto> findAll(int page, int size, UUID branchId, Boolean paid, LocalDate startDate, LocalDate endDate, String search);
+    PageResponse<InvoiceResponseDto> findAll(int page, int size, UUID branchId, Boolean paid, Integer statusInvoice, LocalDate startDate, LocalDate endDate, String search);
 
-    InvoiceResponseDto findById(UUID id);
+    InvoiceResponseDto findById(UUID id, UUID branchId);
 
     InvoiceResponseDto create(InvoiceRequestDto dto, UUID branchId);
 
-    InvoiceResponseDto update(UUID id, InvoiceRequestDto dto);
+    InvoiceResponseDto update(UUID id, InvoiceRequestDto dto, UUID branchId);
 
-    void delete(UUID id);
+    void delete(UUID id, UUID branchId);
 
-    InvoiceResponseDto markAsPaid(UUID invoiceId, InvoiceStatusUpdateDto dto);
+    InvoiceResponseDto markAsPaid(UUID invoiceId, InvoiceStatusUpdateDto dto, UUID branchId);
 
     BusinessDashboardDto getBusinessDashboard(UUID branchId);
 
     InvoiceSearchResultDto searchByPeriod(LocalDate startDate, LocalDate endDate, UUID branchId);
+
+    boolean checkCode(String code, UUID branchId);
+
+    /**
+     * Total des factures de vente encaissées aujourd'hui sur la branche.
+     *
+     * @param branchId identifiant de la branche
+     * @return montant total encaissé sur la journée en cours (jamais {@code null})
+     */
+    BigDecimal getTotalEncashedToday(UUID branchId);
+
+    /**
+     * Calcule le rapport mensuel d'activité.
+     * <p>
+     * Si {@code year} ou {@code month} sont {@code null}, la date du jour est utilisée.
+     * </p>
+     *
+     * @param branchId identifiant de la branche
+     * @param year     année (optionnelle, par défaut année courante)
+     * @param month    mois (optionnel, par défaut mois courant)
+     * @return rapport agrégé pour la période demandée
+     */
+    InvoiceReportDto getReports(UUID branchId, Integer year, Integer month);
+
+    /**
+     * Statistiques mensuelles (Facturés / Avoirs / CA / Encaissements) pour
+     * l'année demandée. Si {@code year} est {@code null}, l'année courante est
+     * utilisée. Retourne une ligne par mois jusqu'au mois courant pour l'année
+     * en cours, ou les 12 mois pour les années passées.
+     *
+     * @param branchId identifiant de la branche
+     * @param year     année (optionnelle, par défaut année courante)
+     * @return liste ordonnée des statistiques mensuelles
+     */
+    List<InvoiceMonthlyStatsDto> getMonthlyStats(UUID branchId, Integer year);
 }

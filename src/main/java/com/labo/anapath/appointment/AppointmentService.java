@@ -9,13 +9,13 @@ public interface AppointmentService {
 
     List<AppointmentCalendarDto> getCalendar(UUID branchId);
 
-    AppointmentResponseDto findById(UUID id);
+    AppointmentResponseDto findById(UUID id, UUID branchId);
 
     AppointmentResponseDto create(AppointmentRequestDto dto, UUID branchId);
 
-    AppointmentResponseDto update(UUID id, AppointmentRequestDto dto);
+    AppointmentResponseDto update(UUID id, AppointmentRequestDto dto, UUID branchId);
 
-    void delete(UUID id);
+    void delete(UUID id, UUID branchId);
 
     ConsultationResponseDto createConsultationFromAppointment(UUID appointmentId);
 

@@ -3,6 +3,7 @@ package com.labo.anapath.setting;
 import com.labo.anapath.common.dto.ApiResponse;
 import com.labo.anapath.common.dto.PageResponse;
 import com.labo.anapath.common.security.UserPrincipal;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -42,16 +43,16 @@ public class SettingInvoiceController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-settings')")
+    @PreAuthorize("hasAuthority('edit-settings')")
     public ResponseEntity<ApiResponse<SettingInvoiceResponseDto>> update(
             @PathVariable UUID id,
-            @RequestBody SettingInvoiceRequestDto dto) {
+            @Valid @RequestBody SettingInvoiceRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Configuration MECeF mise à jour",
                 settingInvoiceService.update(id, dto)));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-settings')")
+    @PreAuthorize("hasAuthority('edit-settings')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         settingInvoiceService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Configuration MECeF supprimée", null));

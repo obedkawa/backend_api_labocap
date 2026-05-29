@@ -28,7 +28,7 @@ public class CashboxOperationController {
     private final CashboxOperationService cashboxOperationService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-finance')")
+    @PreAuthorize("hasAuthority('view-invoices')")
     public ResponseEntity<ApiResponse<PageResponse<CashboxOperationResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -41,7 +41,7 @@ public class CashboxOperationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-finance')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<CashboxOperationResponseDto>> create(
             @Valid @RequestBody CashboxOperationCreateDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {

@@ -54,7 +54,7 @@ public class EmployeeDocumentController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('manage-employees')")
+    @PreAuthorize("hasAuthority('edit-employees')")
     @Transactional
     public ResponseEntity<ApiResponse<EmployeeDocumentResponseDto>> upload(
             @RequestParam("employeeId") @NotNull UUID employeeId,
@@ -83,7 +83,7 @@ public class EmployeeDocumentController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-hr')")
+    @PreAuthorize("hasAuthority('view-employees')")
     public ResponseEntity<ApiResponse<PageResponse<EmployeeDocumentResponseDto>>> findAll(
             @RequestParam @NotNull UUID employeeId,
             @RequestParam(defaultValue = "0") int page,
@@ -95,7 +95,7 @@ public class EmployeeDocumentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-hr')")
+    @PreAuthorize("hasAuthority('view-employees')")
     public ResponseEntity<ApiResponse<EmployeeDocumentResponseDto>> findById(@PathVariable UUID id) {
         EmployeeDocument doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document", id));
@@ -103,7 +103,7 @@ public class EmployeeDocumentController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-employees')")
+    @PreAuthorize("hasAuthority('edit-employees')")
     @Transactional
     public ResponseEntity<ApiResponse<EmployeeDocumentResponseDto>> update(
             @PathVariable UUID id,
@@ -116,7 +116,7 @@ public class EmployeeDocumentController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-employees')")
+    @PreAuthorize("hasAuthority('edit-employees')")
     @Transactional
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         EmployeeDocument doc = documentRepository.findById(id)
@@ -126,7 +126,7 @@ public class EmployeeDocumentController {
     }
 
     @GetMapping("/{id}/download")
-    @PreAuthorize("hasAuthority('view-hr')")
+    @PreAuthorize("hasAuthority('view-employees')")
     public ResponseEntity<Resource> download(@PathVariable UUID id) {
         EmployeeDocument doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document", id));

@@ -1,79 +1,123 @@
 package com.labo.anapath.auth;
 
 import com.labo.anapath.common.dto.ApiResponse;
+import com.labo.anapath.common.security.JwtProperties;
 import com.labo.anapath.common.security.UserPrincipal;
+import com.labo.anapath.user.UserResponseDto;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
+import java.util.Map;
+
 /**
  * Contrôleur REST gérant l'authentification et les opérations 2FA.
  * <p>
  * Expose les endpoints publics et protégés du module auth sous {@code /api/v1/auth}.
- * Le flux d'authentification complet avec 2FA est le suivant :
- * <ol>
- *   <li>{@code POST /login} → retourne un access+refresh token si la 2FA est désactivée,
- *       ou un token temporaire ({@code requires2fa=true}) si elle est activée.</li>
- *   <li>{@code POST /2fa/challenge} → soumet le code TOTP avec le token temporaire
- *       et reçoit les tokens définitifs en retour.</li>
- * </ol>
+ * Les tokens JWT (access et refresh) sont transmis exclusivement via des cookies
+ * {@code HttpOnly; Secure; SameSite=Strict} — jamais dans le corps JSON.
  * </p>
+ * <p>Flux d'authentification avec 2FA :</p>
+ * <ol>
+ *   <li>{@code POST /login} → pose les cookies si 2FA désactivée, sinon retourne
+ *       un {@code tempToken} dans le JSON pour le challenge.</li>
+ *   <li>{@code POST /2fa/challenge} → valide le code TOTP, pose les cookies définitifs.</li>
+ * </ol>
  */
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
+    private static final String ACCESS_COOKIE  = "access_token";
+    private static final String REFRESH_COOKIE = "refresh_token";
+    private static final String API_PATH        = "/";
+    private static final String REFRESH_PATH    = "/api/v1/auth/refresh";
+
     private final AuthService authService;
     private final TwoFaService twoFaService;
+    private final JwtProperties jwtProperties;
 
     /**
      * Authentifie un utilisateur avec son email et son mot de passe.
      * <p>
-     * Si la 2FA est activée sur le compte, retourne un token temporaire de challenge
-     * ({@code requires2fa = true}) ; sinon retourne directement les tokens d'accès et de rafraîchissement.
+     * Si la 2FA est désactivée, pose les cookies {@code access_token} et {@code refresh_token}
+     * HttpOnly sur la réponse et retourne uniquement les métadonnées (user, expiresIn).
+     * Si la 2FA est activée, retourne un {@code tempToken} dans le JSON pour le challenge.
      * </p>
      *
-     * @param request corps de la requête contenant email et mot de passe
-     * @return réponse contenant les tokens ou le challenge 2FA
+     * @param request  corps de la requête contenant email et mot de passe
+     * @param response réponse HTTP pour poser les cookies
+     * @return métadonnées de l'utilisateur ou challenge 2FA
      */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
-        LoginResponse response = authService.login(request);
-        return ResponseEntity.ok(ApiResponse.success("Connexion réussie", response));
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletResponse response) {
+        LoginResponse loginResponse = authService.login(request);
+        if (!Boolean.TRUE.equals(loginResponse.requires2fa())) {
+            writeTokenCookies(response, loginResponse);
+        }
+        return ResponseEntity.ok(ApiResponse.success("Connexion réussie", loginResponse));
     }
 
     /**
-     * Rafraîchit le token d'accès à partir d'un refresh token valide.
+     * Rafraîchit le token d'accès à partir du cookie {@code refresh_token}.
+     * <p>
+     * Le refresh token est lu depuis le cookie HttpOnly (envoyé automatiquement par le navigateur
+     * sur {@code Path=/api/v1/auth/refresh}). Pose de nouveaux cookies en réponse.
+     * </p>
      *
-     * @param request corps contenant le refresh token
-     * @return nouveaux tokens d'accès et de rafraîchissement
+     * @param httpRequest requête HTTP pour extraire le cookie refresh
+     * @param response    réponse HTTP pour poser les nouveaux cookies
+     * @return métadonnées de l'utilisateur mises à jour
      */
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<LoginResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        LoginResponse response = authService.refresh(request);
-        return ResponseEntity.ok(ApiResponse.success("Token rafraîchi", response));
+    public ResponseEntity<ApiResponse<LoginResponse>> refresh(
+            HttpServletRequest httpRequest,
+            HttpServletResponse response) {
+        String refreshToken = extractCookieValue(httpRequest, REFRESH_COOKIE);
+        if (!StringUtils.hasText(refreshToken)) {
+            return ResponseEntity.status(401)
+                    .body(ApiResponse.error("Cookie refresh_token absent ou invalide"));
+        }
+        LoginResponse loginResponse = authService.refresh(refreshToken);
+        writeTokenCookies(response, loginResponse);
+        return ResponseEntity.ok(ApiResponse.success("Token rafraîchi", loginResponse));
     }
 
     /**
-     * Déconnecte l'utilisateur en blacklistant son token JWT courant.
+     * Déconnecte l'utilisateur : blackliste le token courant et efface les cookies.
      *
-     * @param httpRequest requête HTTP pour extraire le token Bearer
-     * @param principal   utilisateur authentifié (non utilisé directement, présent pour la sécurité Spring)
-     * @return réponse de confirmation de déconnexion
+     * @param httpRequest requête HTTP pour extraire le token (cookie ou header)
+     * @param response    réponse HTTP pour effacer les cookies
+     * @param principal   utilisateur authentifié
+     * @return confirmation de déconnexion
      */
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             HttpServletRequest httpRequest,
+            HttpServletResponse response,
             @AuthenticationPrincipal UserPrincipal principal) {
-        authService.logout(extractBearerToken(httpRequest));
+        String token = extractCookieValue(httpRequest, ACCESS_COOKIE);
+        if (!StringUtils.hasText(token)) {
+            token = extractBearerToken(httpRequest);
+        }
+        authService.logout(token);
+        clearTokenCookies(response);
         return ResponseEntity.ok(ApiResponse.success("Déconnexion réussie", null));
     }
 
@@ -130,29 +174,143 @@ public class AuthController {
     }
 
     /**
-     * Valide le code TOTP dans le cadre du flux de challenge 2FA.
-     * <p>
-     * Endpoint public (sans authentification complète). L'utilisateur présente
-     * son token temporaire ({@code 2fa-challenge}) et son code TOTP ; en cas de
-     * succès, il reçoit les tokens d'accès et de rafraîchissement définitifs.
-     * </p>
+     * Valide le code TOTP dans le cadre du flux de challenge 2FA et pose les cookies définitifs.
      *
-     * @param request corps contenant le token temporaire et le code TOTP
-     * @return tokens d'accès et de rafraîchissement définitifs
+     * @param request  corps contenant le token temporaire et le code TOTP
+     * @param response réponse HTTP pour poser les cookies access + refresh
+     * @return métadonnées de l'utilisateur connecté
      */
     @PostMapping("/2fa/challenge")
     public ResponseEntity<ApiResponse<LoginResponse>> challenge2fa(
-            @Valid @RequestBody TwoFactorVerifyRequest request) {
-        LoginResponse response = authService.challenge(request);
-        return ResponseEntity.ok(ApiResponse.success("Authentification 2FA réussie", response));
+            @Valid @RequestBody TwoFactorVerifyRequest request,
+            HttpServletResponse response) {
+        LoginResponse loginResponse = authService.challenge(request);
+        writeTokenCookies(response, loginResponse);
+        return ResponseEntity.ok(ApiResponse.success("Authentification 2FA réussie", loginResponse));
     }
 
     /**
-     * Extrait le token JWT brut depuis l'en-tête {@code Authorization: Bearer <token>}.
+     * Retourne le profil de l'utilisateur actuellement authentifié.
+     * <p>
+     * L'identifiant et la succursale sont extraits directement du JWT via
+     * {@link UserPrincipal}, garantissant l'isolation multi-tenant sans paramètre supplémentaire.
+     * </p>
      *
-     * @param request requête HTTP entrante
-     * @return le token sans le préfixe "Bearer ", ou {@code null} si l'en-tête est absent
+     * @param principal utilisateur authentifié extrait du JWT
+     * @return profil complet de l'utilisateur connecté
      */
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponseDto>> me(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        UserResponseDto userDto = authService.me(principal.getId(), principal.getBranchId());
+        return ResponseEntity.ok(ApiResponse.success("Profil utilisateur", userDto));
+    }
+
+    /**
+     * Initie la réinitialisation du mot de passe en générant un token UUID.
+     * <p>
+     * Comme aucun MailService n'est disponible, le token est retourné directement
+     * dans la réponse JSON à des fins de développement et de test.
+     * </p>
+     *
+     * @param request corps contenant l'adresse e-mail du compte
+     * @return map JSON contenant le token de réinitialisation (clé {@code "token"})
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Map<String, String>>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        Map<String, String> result = authService.forgotPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Token de réinitialisation généré", result));
+    }
+
+    /**
+     * Réinitialise le mot de passe à partir d'un token valide et non expiré.
+     *
+     * @param request corps contenant le token, le nouveau mot de passe et sa confirmation
+     * @return confirmation de la réinitialisation
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Mot de passe réinitialisé avec succès", null));
+    }
+
+    /**
+     * Génère un code OTP à 6 chiffres et l'envoie par email à l'utilisateur.
+     *
+     * @param request corps contenant l'adresse e-mail du compte
+     * @return confirmation d'envoi
+     */
+    @PostMapping("/resend-2fa")
+    public ResponseEntity<ApiResponse<Void>> resend2FA(
+            @Valid @RequestBody Resend2FARequest request) {
+        authService.resend2FA(request);
+        return ResponseEntity.ok(ApiResponse.success("Code OTP envoyé par email", null));
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers cookies
+    // -------------------------------------------------------------------------
+
+    /**
+     * Pose les cookies {@code access_token} et {@code refresh_token} HttpOnly sur la réponse.
+     */
+    private void writeTokenCookies(HttpServletResponse response, LoginResponse loginResponse) {
+        ResponseCookie accessCookie = ResponseCookie.from(ACCESS_COOKIE, loginResponse.accessToken())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path(API_PATH)
+                .maxAge(Duration.ofMillis(jwtProperties.getExpirationMs()))
+                .build();
+
+        ResponseCookie refreshCookie = ResponseCookie.from(REFRESH_COOKIE, loginResponse.refreshToken())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path(REFRESH_PATH)
+                .maxAge(Duration.ofMillis(jwtProperties.getRefreshExpirationMs()))
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+    }
+
+    /**
+     * Efface les cookies d'authentification en posant des cookies expirés (maxAge=0).
+     */
+    private void clearTokenCookies(HttpServletResponse response) {
+        ResponseCookie clearAccess = ResponseCookie.from(ACCESS_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path(API_PATH)
+                .maxAge(0)
+                .build();
+
+        ResponseCookie clearRefresh = ResponseCookie.from(REFRESH_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path(REFRESH_PATH)
+                .maxAge(0)
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, clearAccess.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, clearRefresh.toString());
+    }
+
+    /** Lit la valeur d'un cookie nommé depuis la requête, ou {@code null} si absent. */
+    private String extractCookieValue(HttpServletRequest request, String name) {
+        if (request.getCookies() == null) return null;
+        for (Cookie cookie : request.getCookies()) {
+            if (name.equals(cookie.getName())) return cookie.getValue();
+        }
+        return null;
+    }
+
+    /** Extrait le token JWT brut depuis l'en-tête {@code Authorization: Bearer <token>}. */
     private String extractBearerToken(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {

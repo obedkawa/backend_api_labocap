@@ -26,9 +26,13 @@ public class CashboxServiceImpl implements CashboxService {
 
     @Override
     @Transactional(readOnly = true)
-    public CashboxResponseDto findById(UUID id) {
-        return toDto(cashboxRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Caisse", id)));
+    public CashboxResponseDto findById(UUID id, UUID branchId) {
+        Cashbox cashbox = cashboxRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Caisse", id));
+        if (!cashbox.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Caisse", id);
+        }
+        return toDto(cashbox);
     }
 
     @Override

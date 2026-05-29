@@ -34,9 +34,11 @@ public class ExpenseController {
     public ResponseEntity<ApiResponse<PageResponse<ExpenseResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Integer paid,
+            @RequestParam(required = false) UUID expenseCategorieId,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success(
-                expenseService.findAll(page, size, principal.getBranchId())));
+                expenseService.findAll(page, size, principal.getBranchId(), paid, expenseCategorieId)));
     }
 
     @GetMapping("/{id}")

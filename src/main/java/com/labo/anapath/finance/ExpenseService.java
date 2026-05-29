@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public interface ExpenseService {
 
-    PageResponse<ExpenseResponseDto> findAll(int page, int size, UUID branchId);
+    PageResponse<ExpenseResponseDto> findAll(int page, int size, UUID branchId, Integer paid, UUID expenseCategorieId);
 
     ExpenseResponseDto findById(UUID id);
 

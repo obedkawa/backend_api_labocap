@@ -50,7 +50,7 @@ class CashboxServiceImplTest {
     void findById_notFound_throws404() {
         when(cashboxRepository.findById(CASHBOX_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> cashboxService.findById(CASHBOX_ID))
+        assertThatThrownBy(() -> cashboxService.findById(CASHBOX_ID, BRANCH_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 

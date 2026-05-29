@@ -28,7 +28,7 @@ public class ProblemCategoryController {
     private final ProblemCategoryService problemCategoryService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<List<ProblemCategoryResponseDto>>> findAll(
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success(
@@ -36,13 +36,13 @@ public class ProblemCategoryController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<ProblemCategoryResponseDto>> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(problemCategoryService.findById(id)));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-support')")
+    @PreAuthorize("hasAuthority('edit-tickets')")
     public ResponseEntity<ApiResponse<ProblemCategoryResponseDto>> create(
             @Valid @RequestBody ProblemCategoryRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -52,7 +52,7 @@ public class ProblemCategoryController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-support')")
+    @PreAuthorize("hasAuthority('edit-tickets')")
     public ResponseEntity<ApiResponse<ProblemCategoryResponseDto>> update(
             @PathVariable UUID id,
             @Valid @RequestBody ProblemCategoryRequestDto dto) {
@@ -61,7 +61,7 @@ public class ProblemCategoryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-support')")
+    @PreAuthorize("hasAuthority('edit-tickets')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         problemCategoryService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Catégorie supprimée", null));

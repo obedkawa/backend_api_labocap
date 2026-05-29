@@ -22,14 +22,21 @@ import java.util.UUID;
 @NoArgsConstructor
 public class TestPathologyMacro extends AuditableEntity {
 
-    @Column(name = "title", nullable = false, length = 300)
+    /** Titre du template (fonctionnalité refonte uniquement — nullable pour compatibilité migration). */
+    @Column(name = "title", length = 300)
     private String title;
 
+    /** Contenu du template (fonctionnalité refonte uniquement). */
     @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "test_order_id")
+    /** Lien vers le bon d'examen (unique — un seul macro par bon). Correspond à id_test_pathology_order Laravel. */
+    @Column(name = "test_order_id", unique = true)
     private UUID testOrderId;
+
+    /** Observation libre sur la macroscopie. Correspond à observation (longtext) Laravel. */
+    @Column(name = "observation", columnDefinition = "TEXT")
+    private String observation;
 
     @Column(name = "circulation")
     private Boolean circulation = false;
@@ -48,6 +55,10 @@ public class TestPathologyMacro extends AuditableEntity {
 
     @Column(name = "macro_date")
     private LocalDate macroDate;
+
+    /** Identifiant du laborantin (employé) ayant réalisé la macroscopie. */
+    @Column(name = "employee_id")
+    private UUID employeeId;
 
     public void setAllStepsTrue() {
         this.circulation = true;

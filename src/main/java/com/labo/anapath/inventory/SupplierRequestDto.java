@@ -16,6 +16,7 @@ public class SupplierRequestDto {
     private String phone;
     private String email;
     private String address;
+    private String information;
     private String category;
     private UUID categoryId;
 }

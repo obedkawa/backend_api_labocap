@@ -98,7 +98,7 @@ public class TagController {
      * @return le tag créé avec le code HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     @Transactional
     public ResponseEntity<ApiResponse<TagResponseDto>> create(
             @Valid @RequestBody TagRequestDto dto,
@@ -120,7 +120,7 @@ public class TagController {
      * @return le tag mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     @Transactional
     public ResponseEntity<ApiResponse<TagResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody TagRequestDto dto) {
@@ -139,7 +139,7 @@ public class TagController {
      * @return réponse vide 200 en cas de succès
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-reports')")
+    @PreAuthorize("hasAuthority('edit-reports')")
     @Transactional
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         tagRepository.findById(id)

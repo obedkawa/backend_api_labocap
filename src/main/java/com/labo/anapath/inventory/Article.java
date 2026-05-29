@@ -14,6 +14,7 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "articles")
@@ -41,6 +42,15 @@ public class Article extends AuditableEntity {
 
     @Column(name = "minimum_stock", nullable = false, precision = 10, scale = 2)
     private BigDecimal minimumStock = BigDecimal.ZERO;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "lot_number", length = 100)
+    private String lotNumber;
+
+    @Column(name = "expiration_date")
+    private LocalDate expirationDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "supplier_id")

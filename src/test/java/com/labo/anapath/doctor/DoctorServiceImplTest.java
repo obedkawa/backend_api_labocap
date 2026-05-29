@@ -108,7 +108,7 @@ class DoctorServiceImplTest {
         when(doctorRepository.findById(DOCTOR_ID)).thenReturn(Optional.of(doctor));
         when(doctorMapper.toResponseDto(doctor)).thenReturn(dto);
 
-        DoctorResponseDto result = doctorService.findById(DOCTOR_ID);
+        DoctorResponseDto result = doctorService.findById(DOCTOR_ID, BRANCH_ID);
 
         assertThat(result.name()).isEqualTo("Jean Dupont");
     }
@@ -118,7 +118,7 @@ class DoctorServiceImplTest {
     void findById_notFound_throws404() {
         when(doctorRepository.findById(DOCTOR_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> doctorService.findById(DOCTOR_ID))
+        assertThatThrownBy(() -> doctorService.findById(DOCTOR_ID, BRANCH_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 

@@ -38,8 +38,10 @@ public class AppointmentController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('view-appointments')")
-    public ResponseEntity<ApiResponse<AppointmentResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(appointmentService.findById(id)));
+    public ResponseEntity<ApiResponse<AppointmentResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(appointmentService.findById(id, principal.getBranchId())));
     }
 
     @PostMapping
@@ -56,15 +58,18 @@ public class AppointmentController {
     @PreAuthorize("hasAuthority('edit-appointments')")
     public ResponseEntity<ApiResponse<AppointmentResponseDto>> update(
             @PathVariable UUID id,
-            @Valid @RequestBody AppointmentRequestDto dto) {
+            @Valid @RequestBody AppointmentRequestDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success("Rendez-vous mis à jour",
-                appointmentService.update(id, dto)));
+                appointmentService.update(id, dto, principal.getBranchId())));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('delete-appointments')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        appointmentService.delete(id);
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        appointmentService.delete(id, principal.getBranchId());
         return ResponseEntity.ok(ApiResponse.success("Rendez-vous supprimé", null));
     }
 

@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -42,6 +43,13 @@ public class UnitMeasurementServiceImpl implements UnitMeasurementService {
         return PageResponse.of(
                 unitMeasurementRepository.findByBranchId(branchId, PageRequest.of(page, size, Sort.by("createdAt").descending()))
                         .map(mapper::toUnitMeasurementResponseDto));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UnitMeasurementResponseDto> findAll(UUID branchId) {
+        return unitMeasurementRepository.findAllByBranchIdOrderByName(branchId)
+                .stream().map(mapper::toUnitMeasurementResponseDto).toList();
     }
 
     /** {@inheritDoc} */

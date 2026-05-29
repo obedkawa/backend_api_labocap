@@ -122,7 +122,7 @@ class NotificationServiceImplTest {
     }
 
     @Test
-    @DisplayName("callPatient - téléphone préfixé avec 229 (RÈGLE R7)")
+    @DisplayName("callPatient - téléphone préfixé avec 229 envoyé à OurVoice (RÈGLE R7)")
     void callPatient_phoneNumberPrefixedWith229() {
         Report report = buildReport("français", "97000001");
         when(reportRepository.findById(REPORT_ID)).thenReturn(Optional.of(report));
@@ -132,9 +132,9 @@ class NotificationServiceImplTest {
         when(appelByReportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(testOrderRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        CallResponseDto result = service.callPatient(REPORT_ID, USER_ID);
+        service.callPatient(REPORT_ID, USER_ID);
 
-        assertThat(result.patientPhone()).isEqualTo("22997000001");
+        verify(ourVoiceClient).call(any(), any(), eq("22997000001"), any());
     }
 
     @Test
@@ -173,7 +173,7 @@ class NotificationServiceImplTest {
     }
 
     @Test
-    @DisplayName("sendSms - téléphone préfixé avec 229 (RÈGLE R7)")
+    @DisplayName("sendSms - téléphone préfixé avec 229 envoyé à OurVoice (RÈGLE R7)")
     void sendSms_prefixesPhoneWith229() {
         Report report = buildReport("fr", "97000002");
         when(reportRepository.findById(REPORT_ID)).thenReturn(Optional.of(report));
@@ -181,7 +181,7 @@ class NotificationServiceImplTest {
 
         SmsResponseDto result = service.sendSms(REPORT_ID, USER_ID);
 
-        assertThat(result.patientPhone()).isEqualTo("22997000002");
+        verify(ourVoiceClient).sms(any(), any(), eq("22997000002"), any());
         assertThat(result.status()).isEqualTo("sent");
     }
 

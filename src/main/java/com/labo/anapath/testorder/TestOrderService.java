@@ -26,6 +26,28 @@ public interface TestOrderService {
     PageResponse<TestOrderResponseDto> findAll(int page, int size, TestOrderFilterDto filter, UUID branchId);
 
     /**
+     * Retourne la liste paginée des bons d'examen de la section Immunohistochimie
+     * (types {@code immuno-interne} et {@code immuno-exterme}), filtrée selon les
+     * critères fournis.
+     *
+     * @param page     numéro de page (0-based)
+     * @param size     taille de la page
+     * @param filter   critères de filtrage
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @return page de {@link TestOrderResponseDto}
+     */
+    PageResponse<TestOrderResponseDto> findAllImmuno(int page, int size, TestOrderFilterDto filter, UUID branchId);
+
+    /**
+     * Retourne le nombre de bons immuno dont le rapport est en statut DRAFT
+     * (ou inexistant), pour alimenter le badge sidebar.
+     *
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @return nombre de bons immuno en attente
+     */
+    long countImmunoPending(UUID branchId);
+
+    /**
      * Retourne un bon d'examen par son identifiant, filtré par branche (isolation multi-tenant).
      *
      * @param id       identifiant UUID du bon
@@ -89,12 +111,13 @@ public interface TestOrderService {
      * <p>Seuls les bons au statut {@code VALIDATED} peuvent être livrés.
      * Positionne également {@code report.isDelivered = true} sur le compte-rendu lié.
      *
-     * @param id identifiant UUID du bon à livrer
+     * @param id       identifiant UUID du bon à livrer
+     * @param branchId identifiant de la branche (isolation multi-tenant)
      * @return le bon mis à jour
      * @throws com.labo.anapath.common.exception.InvalidOperationException si le bon n'est pas VALIDATED
      * @throws com.labo.anapath.common.exception.ResourceNotFoundException si le bon ou son compte-rendu est introuvable
      */
-    TestOrderResponseDto markAsDelivered(UUID id);
+    TestOrderResponseDto markAsDelivered(UUID id, UUID branchId);
 
     /**
      * Assigne un médecin pathologiste à un bon d'examen.
@@ -110,9 +133,54 @@ public interface TestOrderService {
      */
     TestOrderResponseDto assignDoctor(UUID id, UUID doctorId, UUID branchId);
 
-    List<String> uploadImages(UUID id, List<MultipartFile> files);
+    List<String> uploadImages(UUID id, UUID branchId, List<MultipartFile> files);
 
-    List<ImageDto> getImages(UUID id);
+    List<ImageDto> getImages(UUID id, UUID branchId);
 
-    void deleteImage(UUID id, int index);
+    void deleteImage(UUID id, int index, UUID branchId);
+
+    // -------------------------------------------------------------------------
+    // Myspace
+    // -------------------------------------------------------------------------
+
+    /**
+     * Retourne les statistiques des bons d'examen assignés à l'utilisateur connecté.
+     *
+     * @param userId   identifiant de l'utilisateur connecté
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @return DTO de statistiques (total, pending, validated, urgent, late)
+     */
+    MyspaceStatsDto getMyspaceStats(UUID userId, UUID branchId);
+
+    /**
+     * Retourne la liste paginée des bons d'examen assignés à l'utilisateur connecté,
+     * avec filtres optionnels sur le statut et une recherche textuelle.
+     *
+     * @param userId   identifiant de l'utilisateur connecté
+     * @param branchId identifiant de la branche (isolation multi-tenant)
+     * @param page     numéro de page (0-based)
+     * @param size     taille de la page
+     * @param status   filtre optionnel sur le statut
+     * @param search   recherche textuelle optionnelle (code du bon ou nom du patient)
+     * @return page de {@link TestOrderResponseDto}
+     */
+    PageResponse<TestOrderResponseDto> getMyspaceOrders(UUID userId, UUID branchId, int page, int size,
+                                                        TestOrderStatus status, String search);
+
+    // -------------------------------------------------------------------------
+    // Tarification contractuelle
+    // -------------------------------------------------------------------------
+
+    /**
+     * Retourne la tarification d'une analyse pour un contrat donné.
+     *
+     * <p>Si l'analyse est référencée dans le contrat, retourne le prix négocié et la remise.
+     * Sinon, retourne uniquement le prix catalogue avec une remise nulle.
+     *
+     * @param contratId  identifiant du contrat
+     * @param labTestId  identifiant de l'analyse
+     * @param branchId   identifiant de la branche (isolation multi-tenant, pour récupérer l'analyse)
+     * @return DTO de tarification
+     */
+    DiscountDto getDiscount(UUID contratId, UUID labTestId, UUID branchId);
 }

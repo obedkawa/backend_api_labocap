@@ -1,10 +1,15 @@
 package com.labo.anapath.user;
 
+import com.labo.anapath.dashboard.DashboardDto;
+import com.labo.anapath.dashboard.DashboardProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,6 +30,16 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * @return un {@link Optional} contenant l'utilisateur trouvé, ou vide
      */
     Optional<User> findByEmail(String email);
+
+    /**
+     * Recherche un utilisateur par son identifiant et sa succursale.
+     * Assure l'isolation multi-tenant : un utilisateur ne peut être accédé que par sa succursale.
+     *
+     * @param id       identifiant UUID de l'utilisateur
+     * @param branchId identifiant de la succursale
+     * @return l'utilisateur s'il appartient à la succursale, sinon vide
+     */
+    Optional<User> findByIdAndBranchId(UUID id, UUID branchId);
 
     /**
      * Vérifie si un utilisateur actif existe avec l'adresse e-mail donnée.
@@ -51,4 +66,22 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * @return {@code true} si la succursale possède des utilisateurs
      */
     boolean existsByBranchId(UUID branchId);
+
+    /**
+     * Recherche un utilisateur par son token de réinitialisation de mot de passe.
+     *
+     * @param resetToken token UUID de réinitialisation
+     * @return un {@link Optional} contenant l'utilisateur trouvé, ou vide
+     */
+    Optional<User> findByResetToken(String resetToken);
+
+    // Dashboard — utilisateurs connectés
+    @Query(value = """
+            SELECT u.id::text as id, u.lastname as lastname, u.firstname as firstname, u.email as email
+            FROM users u
+            WHERE u.branch_id = :branchId AND u.is_connect = true
+              AND u.deleted_at IS NULL
+            ORDER BY u.updated_at DESC
+            """, nativeQuery = true)
+    List<DashboardProjection.ConnectedUser> findConnectedUsersByBranchId(@Param("branchId") UUID branchId);
 }

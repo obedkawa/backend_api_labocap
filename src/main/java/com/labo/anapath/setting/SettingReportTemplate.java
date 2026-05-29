@@ -41,7 +41,7 @@ public class SettingReportTemplate {
     @Column(name = "branch_id", nullable = false)
     private UUID branchId;
 
-    @Column(name = "name", nullable = false, length = 200)
+    @Column(name = "name", length = 200)
     private String name;
 
     @Column(name = "header", columnDefinition = "TEXT")
@@ -52,6 +52,22 @@ public class SettingReportTemplate {
 
     @Column(name = "logo_path", length = 500)
     private String logoPath;
+
+    /** Titre du template (champ Laravel). */
+    @Column(name = "title", length = 255)
+    private String title;
+
+    /** Description (champ Laravel). */
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    /** Détail JSON (champ Laravel). */
+    @Column(name = "detail", columnDefinition = "TEXT")
+    private String detail;
+
+    /** Contenu HTML du template (champ Laravel). */
+    @Column(name = "content", columnDefinition = "TEXT")
+    private String content;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

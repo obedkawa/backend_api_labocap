@@ -63,15 +63,12 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtProperties.getExpirationMs());
 
-        List<String> permissions = userPrincipal.getAuthorities().stream()
-                .map(a -> a.getAuthority())
-                .toList();
-
+        // Permissions are NOT embedded in the token — the filter reloads them from DB
+        // (JwtAuthenticationFilter.loadUserById). Embedding 300+ slugs would bloat the JWT.
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .subject(userPrincipal.getId().toString())
                 .claim("branchId", userPrincipal.getBranchId().toString())
-                .claim("permissions", permissions)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(getSigningKey())

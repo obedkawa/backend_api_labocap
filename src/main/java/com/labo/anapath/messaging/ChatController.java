@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -32,6 +33,7 @@ public class ChatController {
     private final UserService userService;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<PageResponse<ChatResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -46,6 +48,7 @@ public class ChatController {
     }
 
     @PostMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<ChatResponseDto>> send(
             @Valid @RequestBody ChatRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -55,6 +58,7 @@ public class ChatController {
     }
 
     @PatchMapping("/{id}/read")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<ChatResponseDto>> markAsRead(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -63,6 +67,7 @@ public class ChatController {
     }
 
     @PatchMapping("/read-all")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Map<String, Integer>>> markAllAsRead(
             @RequestParam UUID senderId,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -71,6 +76,7 @@ public class ChatController {
     }
 
     @GetMapping("/users")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<UserResponseDto>>> findUsers(
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success(

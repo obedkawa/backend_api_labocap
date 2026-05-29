@@ -45,7 +45,7 @@ public class EmployeeController {
      * @return page d'employés
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('view-hr')")
+    @PreAuthorize("hasAuthority('view-employees')")
     public ResponseEntity<ApiResponse<PageResponse<EmployeeResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -60,7 +60,7 @@ public class EmployeeController {
      * @return l'employé correspondant
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-hr')")
+    @PreAuthorize("hasAuthority('view-employees')")
     public ResponseEntity<ApiResponse<EmployeeResponseDto>> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(employeeService.findById(id)));
     }
@@ -73,7 +73,7 @@ public class EmployeeController {
      * @return l'employé créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-employees')")
+    @PreAuthorize("hasAuthority('edit-employees')")
     public ResponseEntity<ApiResponse<EmployeeResponseDto>> create(
             @Valid @RequestBody EmployeeRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -89,7 +89,7 @@ public class EmployeeController {
      * @return l'employé mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-employees')")
+    @PreAuthorize("hasAuthority('edit-employees')")
     public ResponseEntity<ApiResponse<EmployeeResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody EmployeeRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Employé mis à jour", employeeService.update(id, dto)));
@@ -102,9 +102,25 @@ public class EmployeeController {
      * @return réponse vide confirmant la suppression
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-employees')")
+    @PreAuthorize("hasAuthority('edit-employees')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         employeeService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Employé supprimé", null));
+    }
+
+    /**
+     * Retourne la liste allégée des employés pour alimenter les dropdowns (ex. : assignation
+     * macroscopie). Accessible avec l'autorité {@code view-reports} pour ne pas exiger
+     * {@code view-employees} sur les écrans de workflow.
+     *
+     * @param principal utilisateur authentifié
+     * @return liste de tous les employés de la branche (max 200)
+     */
+    @GetMapping("/for-macro")
+    @PreAuthorize("hasAuthority('view-reports')")
+    public ResponseEntity<ApiResponse<java.util.List<EmployeeResponseDto>>> listForMacro(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(
+                employeeService.findAll(0, 200, principal.getBranchId()).content()));
     }
 }

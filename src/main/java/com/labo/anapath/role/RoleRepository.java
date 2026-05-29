@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,6 +26,26 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
      * @return page de rôles
      */
     Page<Role> findByBranchId(UUID branchId, Pageable pageable);
+
+    /**
+     * Recherche un rôle par son identifiant et sa succursale.
+     * Assure l'isolation multi-tenant : un rôle ne peut être accédé que par sa succursale.
+     *
+     * @param id       identifiant UUID du rôle
+     * @param branchId identifiant de la succursale
+     * @return le rôle s'il appartient à la succursale, sinon vide
+     */
+    Optional<Role> findByIdAndBranchId(UUID id, UUID branchId);
+
+    /**
+     * Récupère les rôles d'une succursale dont les identifiants sont dans la liste fournie.
+     * Utilisé pour valider que les rôles assignés à un utilisateur appartiennent bien à sa branche.
+     *
+     * @param ids      liste d'identifiants UUID de rôles
+     * @param branchId identifiant de la succursale
+     * @return liste des rôles correspondants appartenant à la succursale
+     */
+    List<Role> findAllByIdInAndBranchId(List<UUID> ids, UUID branchId);
 
     /**
      * Recherche un rôle par son slug et sa succursale.

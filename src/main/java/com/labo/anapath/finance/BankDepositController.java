@@ -38,7 +38,7 @@ public class BankDepositController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-bank-deposits')")
+    @PreAuthorize("hasAuthority('view-cashbox-adds')")
     public ResponseEntity<ApiResponse<PageResponse<BankDepositResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,

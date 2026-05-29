@@ -1,5 +1,6 @@
 package com.labo.anapath.user;
 
+import com.labo.anapath.role.PermissionResponseDto;
 import com.labo.anapath.role.RoleResponseDto;
 
 import java.time.LocalDateTime;
@@ -20,7 +21,9 @@ import java.util.UUID;
  * @param isActive  indique si le compte est actif
  * @param branchId  identifiant de la succursale de rattachement
  * @param createdAt date et heure de création du compte
- * @param roles     liste des rôles attribués à l'utilisateur
+ * @param roles             liste des rôles attribués à l'utilisateur
+ * @param signature         signature numérique du praticien (base64 ou texte)
+ * @param directPermissions permissions directement assignées à l'utilisateur (sans rôle)
  */
 public record UserResponseDto(
         UUID id,
@@ -31,5 +34,7 @@ public record UserResponseDto(
         boolean isActive,
         UUID branchId,
         LocalDateTime createdAt,
-        List<RoleResponseDto> roles
+        List<RoleResponseDto> roles,
+        String signature,
+        List<PermissionResponseDto> directPermissions
 ) {}

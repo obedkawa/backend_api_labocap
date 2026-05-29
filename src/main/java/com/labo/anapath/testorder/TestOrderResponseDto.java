@@ -47,6 +47,8 @@ public record TestOrderResponseDto(
         String hospitalName,
         /** Identifiant du contrat de facturation. */
         UUID contratId,
+        /** Nom du contrat de facturation. */
+        String contratName,
         /** Identifiant du type de bon d'examen. */
         UUID typeOrderId,
         /** Libellé du type de bon d'examen. */
@@ -60,5 +62,15 @@ public record TestOrderResponseDto(
         /** Identifiant de la branche propriétaire (isolation multi-tenant). */
         UUID branchId,
         /** Date et heure de création du bon. */
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        /** Identifiant du rapport associé (null si pas encore créé). */
+        UUID reportId,
+        /** Statut du rapport ("DRAFT", "VALIDATED", "DELIVERED"...). Null si pas de rapport. */
+        String reportStatus,
+        /** Indique si le rapport a été remis au patient. */
+        Boolean reportIsDelivered,
+        /** Identifiant de la facture associée (null si pas encore créée). */
+        UUID invoiceId,
+        /** Chemin du fichier joint (pièce jointe du bon). */
+        String archive
 ) {}

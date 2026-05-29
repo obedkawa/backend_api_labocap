@@ -6,11 +6,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
-/**
- * DTO de requête pour l'enregistrement d'un mouvement de stock.
- */
 @Getter
 @Setter
 public class MovementRequestDto {
@@ -26,4 +24,7 @@ public class MovementRequestDto {
     private BigDecimal quantity;
 
     private String notes;
+
+    /** Date du mouvement — par défaut aujourd'hui si non renseignée. */
+    private LocalDate movementDate;
 }

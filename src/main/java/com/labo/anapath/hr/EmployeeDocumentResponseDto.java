@@ -1,5 +1,7 @@
 package com.labo.anapath.hr;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -8,7 +10,7 @@ public record EmployeeDocumentResponseDto(
         UUID employeeId,
         String name,
         String type,
-        String filePath,
+        @JsonIgnore String filePath,
         Long fileSize,
         UUID branchId,
         LocalDateTime createdAt

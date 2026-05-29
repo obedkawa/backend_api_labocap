@@ -154,10 +154,15 @@ public class TestOrderAssignmentServiceImpl implements TestOrderAssignmentServic
         String userName = a.getUser() != null
                 ? a.getUser().getFirstname() + " " + a.getUser().getLastname()
                 : null;
+        java.util.List<String> detailCodes = a.getDetails().stream()
+                .map(TestOrderAssignmentDetail::getTestOrderCode)
+                .filter(java.util.Objects::nonNull)
+                .toList();
         return new AssignmentResponseDto(
                 a.getId(), a.getCode(),
                 a.getUser() != null ? a.getUser().getId() : null,
                 userName, a.getDate(), a.getNote(),
-                a.getDetails().size(), a.getBranchId(), a.getCreatedAt());
+                a.getDetails().size(), detailCodes,
+                a.getBranchId(), a.getCreatedAt());
     }
 }

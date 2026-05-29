@@ -42,7 +42,7 @@ public class BranchController {
      * @return page de {@link BranchResponseDto} encapsulée dans une {@link ApiResponse}
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('manage-branches')")
+    @PreAuthorize("hasAuthority('edit-roles')")
     public ResponseEntity<ApiResponse<PageResponse<BranchResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -56,7 +56,7 @@ public class BranchController {
      * @return le DTO de l'agence trouvée
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-branches')")
+    @PreAuthorize("hasAuthority('edit-roles')")
     public ResponseEntity<ApiResponse<BranchResponseDto>> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(branchService.findById(id)));
     }
@@ -68,7 +68,7 @@ public class BranchController {
      * @return l'agence créée avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-branches')")
+    @PreAuthorize("hasAuthority('edit-roles')")
     public ResponseEntity<ApiResponse<BranchResponseDto>> create(@Valid @RequestBody BranchRequestDto dto) {
         BranchResponseDto created = branchService.create(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Agence créée", created));
@@ -82,7 +82,7 @@ public class BranchController {
      * @return l'agence mise à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-branches')")
+    @PreAuthorize("hasAuthority('edit-roles')")
     public ResponseEntity<ApiResponse<BranchResponseDto>> update(
             @PathVariable UUID id,
             @Valid @RequestBody BranchRequestDto dto) {
@@ -99,7 +99,7 @@ public class BranchController {
      * @return réponse vide confirmant la suppression
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-branches')")
+    @PreAuthorize("hasAuthority('edit-roles')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         branchService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Agence supprimée", null));

@@ -46,7 +46,7 @@ public class RoleController {
      * @return page de {@link RoleResponseDto}
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('manage-roles')")
+    @PreAuthorize("hasAuthority('edit-roles')")
     public ResponseEntity<ApiResponse<PageResponse<RoleResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -57,13 +57,16 @@ public class RoleController {
     /**
      * Retourne un rôle par son identifiant unique.
      *
-     * @param id identifiant UUID du rôle
+     * @param id        identifiant UUID du rôle
+     * @param principal principal de sécurité de l'utilisateur connecté
      * @return le DTO du rôle trouvé
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-roles')")
-    public ResponseEntity<ApiResponse<RoleResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(roleService.findById(id)));
+    @PreAuthorize("hasAuthority('edit-roles')")
+    public ResponseEntity<ApiResponse<RoleResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(roleService.findById(id, principal.getBranchId())));
     }
 
     /**
@@ -75,7 +78,7 @@ public class RoleController {
      * @return le DTO du rôle créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-roles')")
+    @PreAuthorize("hasAuthority('edit-roles')")
     public ResponseEntity<ApiResponse<RoleResponseDto>> create(
             @Valid @RequestBody RoleRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -86,28 +89,33 @@ public class RoleController {
     /**
      * Met à jour les informations d'un rôle existant.
      *
-     * @param id  identifiant UUID du rôle à modifier
-     * @param dto nouvelles données validées
+     * @param id        identifiant UUID du rôle à modifier
+     * @param dto       nouvelles données validées
+     * @param principal principal de sécurité fournissant le branchId
      * @return le DTO mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-roles')")
+    @PreAuthorize("hasAuthority('edit-roles')")
     public ResponseEntity<ApiResponse<RoleResponseDto>> update(
             @PathVariable UUID id,
-            @Valid @RequestBody RoleRequestDto dto) {
-        return ResponseEntity.ok(ApiResponse.success("Rôle mis à jour", roleService.update(id, dto)));
+            @Valid @RequestBody RoleRequestDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success("Rôle mis à jour", roleService.update(id, dto, principal.getBranchId())));
     }
 
     /**
      * Supprime (soft-delete) un rôle par son identifiant.
      *
-     * @param id identifiant UUID du rôle à supprimer
+     * @param id        identifiant UUID du rôle à supprimer
+     * @param principal principal de sécurité fournissant le branchId
      * @return réponse vide avec message de confirmation
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-roles')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        roleService.delete(id);
+    @PreAuthorize("hasAuthority('edit-roles')")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        roleService.delete(id, principal.getBranchId());
         return ResponseEntity.ok(ApiResponse.success("Rôle supprimé", null));
     }
 
@@ -116,13 +124,15 @@ public class RoleController {
      *
      * @param id            identifiant UUID du rôle
      * @param permissionIds liste des identifiants de permissions à assigner
+     * @param principal     principal de sécurité fournissant le branchId
      * @return le DTO du rôle mis à jour avec ses nouvelles permissions
      */
     @PostMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('manage-roles')")
+    @PreAuthorize("hasAuthority('edit-roles')")
     public ResponseEntity<ApiResponse<RoleResponseDto>> assignPermissions(
             @PathVariable UUID id,
-            @RequestBody List<UUID> permissionIds) {
-        return ResponseEntity.ok(ApiResponse.success("Permissions assignées", roleService.assignPermissions(id, permissionIds)));
+            @RequestBody List<UUID> permissionIds,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success("Permissions assignées", roleService.assignPermissions(id, permissionIds, principal.getBranchId())));
     }
 }

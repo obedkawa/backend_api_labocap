@@ -46,6 +46,13 @@ public class LabTestServiceImpl implements LabTestService {
                         .map(mapper::toLabTestResponseDto));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<LabTestResponseDto> findAll(UUID branchId) {
+        return labTestRepository.findAllByBranchIdOrderByName(branchId)
+                .stream().map(mapper::toLabTestResponseDto).toList();
+    }
+
     /** {@inheritDoc} */
     @Override
     @Transactional(readOnly = true)

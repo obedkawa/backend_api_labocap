@@ -58,6 +58,25 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResponse<ReportResponseDto> findAll(int page, int size, UUID branchId, Integer month, Integer year, UUID doctorId, String status, String search) {
+        String statusParam = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                ReportStatus.valueOf(status.toUpperCase());
+                statusParam = status.toUpperCase();
+            } catch (IllegalArgumentException e) {
+                log.warn("Statut de rapport invalide ignoré : '{}'", status);
+            }
+        }
+        String searchParam = (search != null && !search.isBlank()) ? search.trim() : null;
+        return PageResponse.of(reportRepository.findFilteredWithSearch(
+                branchId, month, year, doctorId, statusParam, searchParam,
+                PageRequest.of(page, size))
+                .map(reportMapper::toResponseDto));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public ReportResponseDto findById(UUID id) {
         return reportMapper.toResponseDto(reportRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Compte-rendu", id)));
@@ -65,9 +84,12 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     @Transactional(readOnly = true)
-    public ReportDetailDto findDetailById(UUID id) {
+    public ReportDetailDto findDetailById(UUID id, UUID branchId) {
         Report report = reportRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Compte-rendu", id));
+        if (!report.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Compte-rendu", id);
+        }
 
         List<LogReport> logs = logReportRepository.findByReportIdOrderByCreatedAtDesc(id);
         List<ReportDetailDto.LogReportDto> logDtos = logs.stream()
@@ -182,6 +204,42 @@ public class ReportServiceImpl implements ReportService {
         Report saved = reportRepository.save(report);
         logAction(saved.getId(), isCreate ? "CREATE" : "UPDATE", branchId);
         return reportMapper.toResponseDto(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ReportSuiviRowDto> getSuiviList(
+            UUID branchId, int page, int size,
+            String search, String typeOrderId,
+            String dateBegin, String dateEnd,
+            Boolean isUrgent, Integer statusFilter) {
+        var pageRequest = PageRequest.of(page, size);
+        var resultPage = reportRepository.findSuiviRows(
+                branchId,
+                (search != null && !search.isBlank()) ? search.trim() : null,
+                (typeOrderId != null && !typeOrderId.isBlank()) ? typeOrderId : null,
+                (dateBegin != null && !dateBegin.isBlank()) ? dateBegin : null,
+                (dateEnd != null && !dateEnd.isBlank()) ? dateEnd : null,
+                isUrgent, statusFilter, pageRequest);
+
+        return PageResponse.of(resultPage.map(p -> new ReportSuiviRowDto(
+                p.getReportId() != null ? UUID.fromString(p.getReportId()) : null,
+                p.getTestOrderId() != null ? UUID.fromString(p.getTestOrderId()) : null,
+                p.getTestOrderCode(),
+                p.getTypeOrderTitle(),
+                p.getPatientFirstname(), p.getPatientLastname(),
+                p.getPatientPhone(),
+                p.getIsUrgent(),
+                p.getCreatedAt(),
+                p.getReportStatus() != null ? ReportStatus.valueOf(p.getReportStatus()) : null,
+                Boolean.TRUE.equals(p.getHasMacro()),
+                p.getAssignedDoctorId() != null ? UUID.fromString(p.getAssignedDoctorId()) : null,
+                p.getAssignedDoctorName(),
+                Boolean.TRUE.equals(p.getIsCalled()),
+                Boolean.TRUE.equals(p.getIsDelivered()),
+                p.getRetrieverName(),
+                p.getDeliveryDate()
+        )));
     }
 
     @Override
@@ -398,6 +456,101 @@ public class ReportServiceImpl implements ReportService {
                 .orElseThrow(() -> new ResourceNotFoundException("Template", templateId));
         report.setTemplateId(templateId);
         return reportMapper.toResponseDto(reportRepository.save(report));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ReportGlobalSearchRowDto> globalSearch(
+            UUID branchId, int page, int size,
+            List<String> typeOrderIds, List<String> contratIds,
+            List<String> patientIds, List<String> doctorIds,
+            List<String> hospitalIds, String referenceHospital,
+            String dateBegin, String dateEnd,
+            String content, Boolean isUrgent) {
+
+        var pageRequest = PageRequest.of(page, size);
+        String typeOrderIdsCsv = (typeOrderIds == null || typeOrderIds.isEmpty()) ? null : String.join(",", typeOrderIds);
+        String contratIdsCsv = (contratIds == null || contratIds.isEmpty()) ? null : String.join(",", contratIds);
+        String patientIdsCsv = (patientIds == null || patientIds.isEmpty()) ? null : String.join(",", patientIds);
+        String doctorIdsCsv = (doctorIds == null || doctorIds.isEmpty()) ? null : String.join(",", doctorIds);
+        String hospitalIdsCsv = (hospitalIds == null || hospitalIds.isEmpty()) ? null : String.join(",", hospitalIds);
+
+        var result = reportRepository.globalSearch(
+                branchId, typeOrderIdsCsv, contratIdsCsv, patientIdsCsv, doctorIdsCsv, hospitalIdsCsv,
+                (referenceHospital != null && !referenceHospital.isBlank()) ? referenceHospital : null,
+                (dateBegin != null && !dateBegin.isBlank()) ? dateBegin : null,
+                (dateEnd != null && !dateEnd.isBlank()) ? dateEnd : null,
+                (content != null && !content.isBlank()) ? content : null,
+                isUrgent, pageRequest);
+
+        var rows = result.stream().map(p -> new ReportGlobalSearchRowDto(
+                p.getReportId() != null ? UUID.fromString(p.getReportId()) : null,
+                p.getCodeReport(),
+                p.getTestOrderId() != null ? UUID.fromString(p.getTestOrderId()) : null,
+                p.getCodeExamen(), p.getTypeExamen(), p.getContractName(),
+                p.getPatientId() != null ? UUID.fromString(p.getPatientId()) : null,
+                p.getPatientFirstname(), p.getPatientLastname(),
+                p.getDoctorId() != null ? UUID.fromString(p.getDoctorId()) : null,
+                p.getDoctorName(),
+                p.getHospitalId() != null ? UUID.fromString(p.getHospitalId()) : null,
+                p.getHospitalName(), p.getReferenceHospital(),
+                p.getDateCreation(), p.getIsUrgent())).toList();
+
+        return PageResponse.of(new org.springframework.data.domain.PageImpl<>(rows, pageRequest, result.getTotalElements()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ReportListDto> getList(
+            UUID branchId, int page, int size,
+            String search, String statusFilter,
+            String dateBegin, String dateEnd) {
+        var pageRequest = PageRequest.of(page, size);
+        var result = reportRepository.findListRows(
+                branchId,
+                (search != null && !search.isBlank()) ? search.trim() : null,
+                (statusFilter != null && !statusFilter.isBlank()) ? statusFilter : null,
+                (dateBegin != null && !dateBegin.isBlank()) ? dateBegin : null,
+                (dateEnd != null && !dateEnd.isBlank()) ? dateEnd : null,
+                pageRequest);
+
+        var content = result.stream().map(p -> new ReportListDto(
+                p.getId() != null ? UUID.fromString(p.getId()) : null,
+                p.getReportCode(),
+                p.getTestOrderId() != null ? UUID.fromString(p.getTestOrderId()) : null,
+                p.getTestOrderCode(),
+                p.getPatientId() != null ? UUID.fromString(p.getPatientId()) : null,
+                p.getPatientCode(),
+                p.getPatientFirstname(),
+                p.getPatientLastname(),
+                p.getPatientPhone(),
+                p.getTypeOrderTitle(),
+                p.getStatus() != null ? ReportStatus.valueOf(p.getStatus()) : null,
+                p.getIsDelivered(),
+                p.getIsCalled(),
+                p.getSignatureDate(),
+                p.getCreatedAt()
+        )).toList();
+
+        return PageResponse.of(new org.springframework.data.domain.PageImpl<>(
+                content, pageRequest, result.getTotalElements()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ReportPerformanceDto getPerformanceStats(
+            UUID branchId, String doctorId, Integer month, Integer year) {
+        var stats = reportRepository.getReportPerformanceStats(
+                branchId,
+                (doctorId != null && !doctorId.isBlank()) ? doctorId : null,
+                month, year);
+        long total = stats.get("totalReports") != null ? ((Number) stats.get("totalReports")).longValue() : 0L;
+        long within = stats.get("withinDeadline") != null ? ((Number) stats.get("withinDeadline")).longValue() : 0L;
+        long beyond = stats.get("beyondDeadline") != null ? ((Number) stats.get("beyondDeadline")).longValue() : 0L;
+        long denom = within + beyond;
+        double pctWithin = denom > 0 ? Math.round((within * 10000.0) / denom) / 100.0 : 0.0;
+        double pctBeyond = denom > 0 ? Math.round((beyond * 10000.0) / denom) / 100.0 : 0.0;
+        return new ReportPerformanceDto(total, within, beyond, pctWithin, pctBeyond);
     }
 
     @Override

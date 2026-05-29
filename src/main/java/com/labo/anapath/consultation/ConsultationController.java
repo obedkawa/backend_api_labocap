@@ -48,8 +48,10 @@ public class ConsultationController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('view-consultations')")
-    public ResponseEntity<ApiResponse<ConsultationResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(consultationService.findById(id)));
+    public ResponseEntity<ApiResponse<ConsultationResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(consultationService.findById(id, principal.getBranchId())));
     }
 
     @PostMapping

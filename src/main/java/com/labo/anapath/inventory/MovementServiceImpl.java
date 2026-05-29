@@ -3,6 +3,7 @@ package com.labo.anapath.inventory;
 import com.labo.anapath.common.dto.PageResponse;
 import com.labo.anapath.common.exception.BusinessException;
 import com.labo.anapath.common.exception.ResourceNotFoundException;
+import com.labo.anapath.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -11,12 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
-/**
- * Implémentation de {@link MovementService} gérant la logique métier
- * des mouvements de stock et la mise à jour des quantités des articles.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -24,12 +22,9 @@ public class MovementServiceImpl implements MovementService {
 
     private final MovementRepository movementRepository;
     private final ArticleRepository articleRepository;
+    private final UserRepository userRepository;
     private final InventoryMapper inventoryMapper;
 
-    /**
-     * {@inheritDoc}
-     * Les mouvements sont triés par date de création décroissante.
-     */
     @Override
     @Transactional(readOnly = true)
     public PageResponse<MovementResponseDto> findAll(int page, int size, UUID branchId) {
@@ -38,18 +33,18 @@ public class MovementServiceImpl implements MovementService {
                 .map(inventoryMapper::toMovementResponseDto));
     }
 
-    /**
-     * {@inheritDoc}
-     * La mise à jour du stock suit les règles suivantes :
-     * <ul>
-     *   <li>IN : la quantité est ajoutée au stock</li>
-     *   <li>OUT : la quantité est soustraite ; une exception est levée si le stock devient négatif</li>
-     *   <li>ADJUSTMENT : le stock est remplacé par la quantité fournie (inventaire physique)</li>
-     * </ul>
-     */
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<MovementResponseDto> findAll(int page, int size, UUID branchId, UUID articleId) {
+        if (articleId == null) return findAll(page, size, branchId);
+        return PageResponse.of(movementRepository.findByBranchIdAndArticleId(branchId, articleId,
+                PageRequest.of(page, size, Sort.by("createdAt").descending()))
+                .map(inventoryMapper::toMovementResponseDto));
+    }
+
     @Override
     @Transactional
-    public MovementResponseDto create(MovementRequestDto dto, UUID branchId) {
+    public MovementResponseDto create(MovementRequestDto dto, UUID branchId, UUID userId) {
         Article article = articleRepository.findById(dto.getArticleId())
                 .orElseThrow(() -> new ResourceNotFoundException("Article", dto.getArticleId()));
 
@@ -59,8 +54,12 @@ public class MovementServiceImpl implements MovementService {
         movement.setType(dto.getType());
         movement.setQuantity(dto.getQuantity());
         movement.setNotes(dto.getNotes());
+        movement.setMovementDate(dto.getMovementDate() != null ? dto.getMovementDate() : LocalDate.now());
 
-        // Mise à jour du stock selon le type de mouvement
+        if (userId != null) {
+            userRepository.findById(userId).ifPresent(movement::setUser);
+        }
+
         if (dto.getType() == MovementType.IN) {
             article.setQuantity(article.getQuantity().add(dto.getQuantity()));
         } else if (dto.getType() == MovementType.OUT) {
@@ -71,7 +70,6 @@ public class MovementServiceImpl implements MovementService {
             }
             article.setQuantity(newQty);
         } else if (dto.getType() == MovementType.ADJUSTMENT) {
-            // Ajustement : remplacement direct de la quantité (inventaire physique)
             article.setQuantity(dto.getQuantity());
         }
 

@@ -34,8 +34,13 @@ public class ContratServiceImpl implements ContratService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<ContratResponseDto> findAll(int page, int size, UUID branchId) {
-        return PageResponse.of(contratRepository.findByBranchId(branchId,
+    public PageResponse<ContratResponseDto> findAll(int page, int size, UUID branchId, String status, String search, String dateFrom, String dateTo) {
+        LocalDate from = dateFrom != null && !dateFrom.isBlank() ? LocalDate.parse(dateFrom) : null;
+        LocalDate to = dateTo != null && !dateTo.isBlank() ? LocalDate.parse(dateTo) : null;
+        String statusVal = (status != null && !status.isBlank()) ? status : null;
+        String searchVal = (search != null && !search.isBlank()) ? search : null;
+        return PageResponse.of(contratRepository.findWithFilters(
+                branchId, statusVal, searchVal, from, to,
                 PageRequest.of(page, size, Sort.by("createdAt").descending()))
                 .map(c -> {
                     ContratResponseDto dto = contratMapper.toResponseDto(c);
@@ -176,6 +181,7 @@ public class ContratServiceImpl implements ContratService {
         Contrat contrat = contratRepository.findById(contractId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contrat", contractId));
         contrat.setIsClose(true);
+        contrat.setStatus("CLOTURE");
         return addClientName(contrat, contratMapper.toResponseDto(contratRepository.save(contrat)));
     }
 

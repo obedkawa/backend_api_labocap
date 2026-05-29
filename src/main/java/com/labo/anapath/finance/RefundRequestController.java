@@ -29,7 +29,7 @@ public class RefundRequestController {
     private final RefundService refundService;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-finance')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<RefundRequestResponseDto>> create(
             @Valid @RequestBody RefundRequestCreateDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -39,7 +39,7 @@ public class RefundRequestController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('manage-finance')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<RefundRequestStatusResult>> updateStatus(
             @PathVariable UUID id,
             @Valid @RequestBody RefundRequestStatusUpdateDto dto,
@@ -49,7 +49,7 @@ public class RefundRequestController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-finance')")
+    @PreAuthorize("hasAuthority('view-invoices')")
     public ResponseEntity<ApiResponse<PageResponse<RefundRequestResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -59,13 +59,13 @@ public class RefundRequestController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-finance')")
+    @PreAuthorize("hasAuthority('view-invoices')")
     public ResponseEntity<ApiResponse<RefundRequestResponseDto>> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(refundService.findById(id)));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-finance')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         refundService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Demande supprimée", null));

@@ -1,6 +1,7 @@
 package com.labo.anapath.user;
 
 import com.labo.anapath.common.audit.AuditableEntity;
+import com.labo.anapath.role.Permission;
 import com.labo.anapath.role.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,6 +16,7 @@ import lombok.Setter;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -86,6 +88,14 @@ public class User extends AuditableEntity {
     @Column(name = "email_notification", nullable = false)
     private boolean emailNotification = false;
 
+    /** Token de réinitialisation du mot de passe (UUID généré, usage unique). */
+    @Column(name = "reset_token", length = 255)
+    private String resetToken;
+
+    /** Date d'expiration du token de réinitialisation (1 heure après génération). */
+    @Column(name = "reset_token_expires_at")
+    private LocalDateTime resetTokenExpiresAt;
+
     /**
      * Rôles attribués à l'utilisateur.
      * Chargement paresseux : la liste n'est récupérée que si explicitement accédée.
@@ -97,4 +107,16 @@ public class User extends AuditableEntity {
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private List<Role> roles = new ArrayList<>();
+
+    /**
+     * Permissions directement assignées à l'utilisateur (sans passer par un rôle).
+     * Chargement paresseux via la table de jointure {@code users_permissions}.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "users_permissions",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private List<Permission> directPermissions = new ArrayList<>();
 }

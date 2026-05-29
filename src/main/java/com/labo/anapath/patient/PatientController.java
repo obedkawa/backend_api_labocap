@@ -60,13 +60,16 @@ public class PatientController {
     /**
      * Retourne un patient par son identifiant unique.
      *
-     * @param id identifiant UUID du patient
+     * @param id        identifiant UUID du patient
+     * @param principal principal de l'utilisateur authentifié
      * @return le DTO du patient trouvé
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('view-patients')")
-    public ResponseEntity<ApiResponse<PatientResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(patientService.findById(id)));
+    public ResponseEntity<ApiResponse<PatientResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(patientService.findById(id, principal.getBranchId())));
     }
 
     /**
@@ -88,29 +91,34 @@ public class PatientController {
     /**
      * Met à jour le dossier d'un patient existant.
      *
-     * @param id  identifiant du patient à modifier
-     * @param dto nouvelles données
+     * @param id        identifiant du patient à modifier
+     * @param dto       nouvelles données
+     * @param principal principal de l'utilisateur authentifié
      * @return le DTO du patient mis à jour
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('edit-patients')")
     public ResponseEntity<ApiResponse<PatientResponseDto>> update(
             @PathVariable UUID id,
-            @Valid @RequestBody PatientRequestDto dto) {
-        return ResponseEntity.ok(ApiResponse.success("Patient mis à jour", patientService.update(id, dto)));
+            @Valid @RequestBody PatientRequestDto dto,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success("Patient mis à jour", patientService.update(id, dto, principal.getBranchId())));
     }
 
     /**
      * Supprime (logiquement) le dossier d'un patient.
      * Refusé si le patient possède des demandes d'examen.
      *
-     * @param id identifiant du patient à supprimer
+     * @param id        identifiant du patient à supprimer
+     * @param principal principal de l'utilisateur authentifié
      * @return réponse vide confirmant la suppression
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('delete-patients')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        patientService.delete(id);
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        patientService.delete(id, principal.getBranchId());
         return ResponseEntity.ok(ApiResponse.success("Patient supprimé", null));
     }
 
@@ -118,12 +126,15 @@ public class PatientController {
      * Retourne le profil complet d'un patient : informations personnelles, résumé
      * des demandes d'examen et résumé des factures.
      *
-     * @param id identifiant du patient
+     * @param id        identifiant du patient
+     * @param principal principal de l'utilisateur authentifié
      * @return le {@link PatientProfileDto} agrégé
      */
     @GetMapping("/{id}/profile")
     @PreAuthorize("hasAuthority('view-patients')")
-    public ResponseEntity<ApiResponse<PatientProfileDto>> getProfile(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(patientService.getProfile(id)));
+    public ResponseEntity<ApiResponse<PatientProfileDto>> getProfile(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(patientService.getProfile(id, principal.getBranchId())));
     }
 }

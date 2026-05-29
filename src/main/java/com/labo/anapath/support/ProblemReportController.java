@@ -28,7 +28,7 @@ public class ProblemReportController {
     private final ProblemReportService problemReportService;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<PageResponse<ProblemReportResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -38,13 +38,13 @@ public class ProblemReportController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<ProblemReportResponseDto>> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(problemReportService.findById(id)));
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('view-support')")
+    @PreAuthorize("hasAuthority('view-tickets')")
     public ResponseEntity<ApiResponse<ProblemReportResponseDto>> create(
             @Valid @RequestBody ProblemReportRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -54,7 +54,7 @@ public class ProblemReportController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('manage-support')")
+    @PreAuthorize("hasAuthority('edit-tickets')")
     public ResponseEntity<ApiResponse<ProblemReportResponseDto>> updateStatus(
             @PathVariable UUID id,
             @RequestParam String status) {

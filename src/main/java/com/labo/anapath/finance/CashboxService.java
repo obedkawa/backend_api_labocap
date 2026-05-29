@@ -8,7 +8,7 @@ public interface CashboxService {
 
     PageResponse<CashboxResponseDto> findAll(int page, int size, UUID branchId);
 
-    CashboxResponseDto findById(UUID id);
+    CashboxResponseDto findById(UUID id, UUID branchId);
 
     CashboxResponseDto create(CashboxRequestDto dto, UUID branchId);
 

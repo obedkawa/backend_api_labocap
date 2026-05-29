@@ -71,15 +71,18 @@ public class HospitalController {
     }
 
     /**
-     * Retourne un hôpital par son identifiant unique.
+     * Retourne un hôpital par son identifiant unique, filtré par l'agence de l'utilisateur connecté.
      *
-     * @param id identifiant UUID de l'hôpital
+     * @param id        identifiant UUID de l'hôpital
+     * @param principal principal de l'utilisateur authentifié
      * @return le DTO de l'hôpital trouvé
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('view-hospitals')")
-    public ResponseEntity<ApiResponse<HospitalResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(hospitalService.findById(id)));
+    public ResponseEntity<ApiResponse<HospitalResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(hospitalService.findById(id, principal.getBranchId())));
     }
 
     /**
@@ -90,7 +93,7 @@ public class HospitalController {
      * @return le DTO de l'hôpital créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-hospitals')")
+    @PreAuthorize("hasAuthority('edit-hospitals')")
     public ResponseEntity<ApiResponse<HospitalResponseDto>> create(
             @Valid @RequestBody HospitalRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -106,7 +109,7 @@ public class HospitalController {
      * @return le DTO de l'hôpital mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-hospitals')")
+    @PreAuthorize("hasAuthority('edit-hospitals')")
     public ResponseEntity<ApiResponse<HospitalResponseDto>> update(
             @PathVariable UUID id,
             @Valid @RequestBody HospitalRequestDto dto) {
@@ -120,7 +123,7 @@ public class HospitalController {
      * @return réponse vide confirmant la suppression
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-hospitals')")
+    @PreAuthorize("hasAuthority('edit-hospitals')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         hospitalService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Hôpital supprimé", null));

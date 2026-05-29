@@ -27,13 +27,14 @@ public interface PatientService {
     PageResponse<PatientResponseDto> findAll(int page, int size, String search, UUID branchId);
 
     /**
-     * Recherche un patient par son identifiant unique.
+     * Recherche un patient par son identifiant unique, filtré par branche.
      *
-     * @param id identifiant UUID du patient
+     * @param id       identifiant UUID du patient
+     * @param branchId identifiant de l'agence (isolation multi-tenant)
      * @return le DTO du patient
-     * @throws com.labo.anapath.common.exception.ResourceNotFoundException si le patient n'existe pas
+     * @throws com.labo.anapath.common.exception.ResourceNotFoundException si le patient n'existe pas ou n'appartient pas à la branche
      */
-    PatientResponseDto findById(UUID id);
+    PatientResponseDto findById(UUID id, UUID branchId);
 
     /**
      * Crée un nouveau dossier patient rattaché à l'agence spécifiée.
@@ -47,29 +48,32 @@ public interface PatientService {
     PatientResponseDto create(PatientRequestDto dto, UUID branchId);
 
     /**
-     * Met à jour le dossier d'un patient existant.
+     * Met à jour le dossier d'un patient existant, vérifié dans la branche de l'appelant.
      *
-     * @param id  identifiant du patient à modifier
-     * @param dto nouvelles données
+     * @param id       identifiant du patient à modifier
+     * @param dto      nouvelles données
+     * @param branchId identifiant de l'agence (isolation multi-tenant)
      * @return le DTO du patient mis à jour
      */
-    PatientResponseDto update(UUID id, PatientRequestDto dto);
+    PatientResponseDto update(UUID id, PatientRequestDto dto, UUID branchId);
 
     /**
-     * Supprime logiquement le dossier d'un patient.
+     * Supprime logiquement le dossier d'un patient, vérifié dans la branche de l'appelant.
      * Refusé si le patient possède des demandes d'examen (TestOrder).
      *
-     * @param id identifiant du patient à supprimer
+     * @param id       identifiant du patient à supprimer
+     * @param branchId identifiant de l'agence (isolation multi-tenant)
      * @throws com.labo.anapath.common.exception.BusinessException si le patient a des demandes liées
      */
-    void delete(UUID id);
+    void delete(UUID id, UUID branchId);
 
     /**
      * Retourne le profil complet d'un patient, incluant un résumé de ses demandes
      * d'examen et de ses factures avec les totaux financiers calculés.
      *
-     * @param id identifiant du patient
+     * @param id       identifiant du patient
+     * @param branchId identifiant de l'agence (isolation multi-tenant)
      * @return le {@link PatientProfileDto} agrégé
      */
-    PatientProfileDto getProfile(UUID id);
+    PatientProfileDto getProfile(UUID id, UUID branchId);
 }

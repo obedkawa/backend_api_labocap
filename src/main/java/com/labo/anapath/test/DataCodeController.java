@@ -73,7 +73,7 @@ public class DataCodeController {
      * @return le DTO du code créé avec le statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<DataCodeResponseDto>> create(
             @Valid @RequestBody DataCodeRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -89,7 +89,7 @@ public class DataCodeController {
      * @return le DTO mis à jour
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<DataCodeResponseDto>> update(
             @PathVariable UUID id, @Valid @RequestBody DataCodeRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Code mis à jour", dataCodeService.update(id, dto)));
@@ -102,7 +102,7 @@ public class DataCodeController {
      * @return réponse vide avec message de confirmation
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-tests')")
+    @PreAuthorize("hasAuthority('edit-tests')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         dataCodeService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Code supprimé", null));

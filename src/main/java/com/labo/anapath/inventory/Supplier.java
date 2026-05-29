@@ -34,6 +34,9 @@ public class Supplier extends AuditableEntity {
     @Column(name = "address", columnDefinition = "TEXT")
     private String address;
 
+    @Column(name = "information", columnDefinition = "TEXT")
+    private String information;
+
     @Column(name = "category", length = 100)
     private String category;
 

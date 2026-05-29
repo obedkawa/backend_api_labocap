@@ -12,11 +12,13 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -74,11 +76,28 @@ public class SettingController {
      * @return le paramètre sauvegardé
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-settings')")
+    @PreAuthorize("hasAuthority('edit-settings')")
     public ResponseEntity<ApiResponse<SettingResponseDto>> upsert(
             @Valid @RequestBody SettingRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ResponseEntity.ok(ApiResponse.success("Paramètre sauvegardé", settingService.upsert(dto, principal.getBranchId())));
+    }
+
+    /**
+     * Crée ou met à jour plusieurs paramètres en une seule requête (bulk upsert).
+     * Chaque entrée de la liste est traitée comme un upsert individuel sur la filiale connectée.
+     *
+     * @param settings  liste de paramètres (clé + valeur) à sauvegarder
+     * @param principal utilisateur authentifié
+     * @return réponse vide confirmant l'opération
+     */
+    @PutMapping("/bulk")
+    @PreAuthorize("hasAuthority('edit-settings')")
+    public ResponseEntity<ApiResponse<Void>> bulkUpsert(
+            @Valid @RequestBody List<SettingRequestDto> settings,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        settingService.bulkUpsert(settings, principal.getBranchId());
+        return ResponseEntity.ok(ApiResponse.success("Paramètres sauvegardés", null));
     }
 
     /**
@@ -88,7 +107,7 @@ public class SettingController {
      * @return réponse vide confirmant la suppression
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-settings')")
+    @PreAuthorize("hasAuthority('edit-settings')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         settingService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Paramètre supprimé", null));

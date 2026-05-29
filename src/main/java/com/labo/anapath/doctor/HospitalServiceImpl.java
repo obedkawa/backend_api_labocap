@@ -43,9 +43,12 @@ public class HospitalServiceImpl implements HospitalService {
 
     @Override
     @Transactional(readOnly = true)
-    public HospitalResponseDto findById(UUID id) {
+    public HospitalResponseDto findById(UUID id, UUID branchId) {
         Hospital hospital = hospitalRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hôpital", id));
+        if (!hospital.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Hôpital", id);
+        }
         return hospitalMapper.toResponseDto(hospital);
     }
 

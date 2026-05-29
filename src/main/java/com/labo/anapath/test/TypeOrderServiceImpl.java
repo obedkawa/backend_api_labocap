@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,6 +42,13 @@ public class TypeOrderServiceImpl implements TypeOrderService {
         return PageResponse.of(
                 typeOrderRepository.findByBranchId(branchId, PageRequest.of(page, size, Sort.by("createdAt").descending()))
                         .map(mapper::toTypeOrderResponseDto));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TypeOrderResponseDto> findAll(UUID branchId) {
+        return typeOrderRepository.findAllByBranchIdOrderByTitle(branchId)
+                .stream().map(mapper::toTypeOrderResponseDto).toList();
     }
 
     /** {@inheritDoc} */

@@ -2,6 +2,7 @@ package com.labo.anapath.inventory;
 
 import com.labo.anapath.common.exception.BusinessException;
 import com.labo.anapath.common.exception.ResourceNotFoundException;
+import com.labo.anapath.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,16 +30,18 @@ class MovementServiceTest {
 
     @Mock MovementRepository movementRepository;
     @Mock ArticleRepository articleRepository;
+    @Mock UserRepository userRepository;
     @Mock InventoryMapper inventoryMapper;
 
     MovementServiceImpl service;
 
     private final UUID BRANCH_ID  = UUID.randomUUID();
     private final UUID ARTICLE_ID = UUID.randomUUID();
+    private final UUID USER_ID    = UUID.randomUUID();
 
     @BeforeEach
     void setup() {
-        service = new MovementServiceImpl(movementRepository, articleRepository, inventoryMapper);
+        service = new MovementServiceImpl(movementRepository, articleRepository, userRepository, inventoryMapper);
     }
 
     private Article buildArticle(BigDecimal quantity) {
@@ -51,7 +54,7 @@ class MovementServiceTest {
 
     private MovementResponseDto dummyDto() {
         return new MovementResponseDto(UUID.randomUUID(), ARTICLE_ID, "Réactif test",
-                MovementType.IN, BigDecimal.TEN, null, BRANCH_ID, null);
+                MovementType.IN, BigDecimal.TEN, null, BRANCH_ID, null, null, null, null);
     }
 
     @Test
@@ -67,7 +70,7 @@ class MovementServiceTest {
         dto.setType(MovementType.IN);
         dto.setQuantity(new BigDecimal("10"));
 
-        service.create(dto, BRANCH_ID);
+        service.create(dto, BRANCH_ID, null);
 
         assertThat(article.getQuantity()).isEqualByComparingTo("30");
         verify(articleRepository).save(article);
@@ -86,7 +89,7 @@ class MovementServiceTest {
         dto.setType(MovementType.OUT);
         dto.setQuantity(new BigDecimal("15"));
 
-        service.create(dto, BRANCH_ID);
+        service.create(dto, BRANCH_ID, null);
 
         assertThat(article.getQuantity()).isEqualByComparingTo("35");
     }
@@ -102,7 +105,7 @@ class MovementServiceTest {
         dto.setType(MovementType.OUT);
         dto.setQuantity(new BigDecimal("10"));
 
-        assertThatThrownBy(() -> service.create(dto, BRANCH_ID))
+        assertThatThrownBy(() -> service.create(dto, BRANCH_ID, null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Stock insuffisant");
     }
@@ -120,7 +123,7 @@ class MovementServiceTest {
         dto.setType(MovementType.ADJUSTMENT);
         dto.setQuantity(new BigDecimal("42"));
 
-        service.create(dto, BRANCH_ID);
+        service.create(dto, BRANCH_ID, null);
 
         assertThat(article.getQuantity()).isEqualByComparingTo("42");
     }
@@ -135,8 +138,28 @@ class MovementServiceTest {
         dto.setType(MovementType.IN);
         dto.setQuantity(BigDecimal.ONE);
 
-        assertThatThrownBy(() -> service.create(dto, BRANCH_ID))
+        assertThatThrownBy(() -> service.create(dto, BRANCH_ID, null))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("create - avec userId → user résolu et rattaché au mouvement")
+    void create_withUserId_setsUserOnMovement() {
+        Article article = buildArticle(new BigDecimal("10"));
+        com.labo.anapath.user.User user = new com.labo.anapath.user.User();
+        when(articleRepository.findById(ARTICLE_ID)).thenReturn(Optional.of(article));
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(movementRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(inventoryMapper.toMovementResponseDto(any())).thenReturn(dummyDto());
+
+        MovementRequestDto dto = new MovementRequestDto();
+        dto.setArticleId(ARTICLE_ID);
+        dto.setType(MovementType.IN);
+        dto.setQuantity(BigDecimal.ONE);
+
+        service.create(dto, BRANCH_ID, USER_ID);
+
+        verify(userRepository).findById(USER_ID);
     }
 
     @Test

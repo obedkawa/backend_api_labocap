@@ -43,7 +43,7 @@ public class SettingAppController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-settings')")
+    @PreAuthorize("hasAuthority('edit-settings')")
     public ResponseEntity<ApiResponse<SettingAppResponseDto>> upsert(
             @Valid @RequestBody SettingAppRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -52,7 +52,7 @@ public class SettingAppController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-settings')")
+    @PreAuthorize("hasAuthority('edit-settings')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         settingAppService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Paramètre supprimé", null));

@@ -11,14 +11,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/**
- * Endpoint public pour le téléchargement des fichiers stockés localement.
- * Protection par obscurité UUID — configuré en permitAll() dans SecurityConfig.
- */
 @RestController
 @RequestMapping("/api/v1/files")
 @RequiredArgsConstructor
@@ -32,6 +29,12 @@ public class FileController {
                                                           jakarta.servlet.http.HttpServletRequest request) {
         String path = request.getRequestURI().replaceFirst("/api/v1/files/", "");
         Path filePath = fileStorageService.resolve(path);
+        Path basePath = fileStorageService.resolve("");
+
+        if (!filePath.startsWith(basePath)) {
+            log.warn("Tentative de path traversal détectée: {}", path);
+            return ResponseEntity.status(403).build();
+        }
 
         if (!Files.exists(filePath) || !Files.isReadable(filePath)) {
             return ResponseEntity.notFound().build();
@@ -49,10 +52,15 @@ public class FileController {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .header("X-Content-Type-Options", "nosniff")
                 .body(body);
     }
 
     private String detectContentType(Path path) {
+        try {
+            String detected = Files.probeContentType(path);
+            if (detected != null) return detected;
+        } catch (IOException ignored) {}
         String name = path.getFileName().toString().toLowerCase();
         if (name.endsWith(".pdf"))  return "application/pdf";
         if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";

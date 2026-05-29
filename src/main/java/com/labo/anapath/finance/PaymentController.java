@@ -47,7 +47,7 @@ public class PaymentController {
      * @return page de paiements
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('view-finance')")
+    @PreAuthorize("hasAuthority('view-invoices')")
     public ResponseEntity<ApiResponse<PageResponse<PaymentResponseDto>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -58,13 +58,16 @@ public class PaymentController {
     /**
      * Retourne le détail d'un paiement par son identifiant.
      *
-     * @param id identifiant du paiement
+     * @param id        identifiant du paiement
+     * @param principal utilisateur authentifié (fournit le branchId)
      * @return le paiement correspondant
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('view-finance')")
-    public ResponseEntity<ApiResponse<PaymentResponseDto>> findById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(paymentService.findById(id)));
+    @PreAuthorize("hasAuthority('view-invoices')")
+    public ResponseEntity<ApiResponse<PaymentResponseDto>> findById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(paymentService.findById(id, principal.getBranchId())));
     }
 
     /**
@@ -75,7 +78,7 @@ public class PaymentController {
      * @return le paiement créé avec statut HTTP 201
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('manage-payments')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<PaymentResponseDto>> create(
             @Valid @RequestBody PaymentRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -90,7 +93,7 @@ public class PaymentController {
      * @return réponse vide avec message de confirmation
      */
     @PostMapping("/initiate")
-    @PreAuthorize("hasAuthority('manage-payments')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<MobileMoneyStatusResponseDto>> initiatePayment(
             @Valid @RequestBody MobileMoneyInitiateRequestDto dto,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -98,7 +101,7 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('view-finance')")
+    @PreAuthorize("hasAuthority('view-invoices')")
     public ResponseEntity<ApiResponse<MobileMoneyStatusResponseDto>> checkPaymentStatus(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -106,7 +109,7 @@ public class PaymentController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('manage-payments')")
+    @PreAuthorize("hasAuthority('edit-invoices')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         paymentService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Paiement supprimé", null));

@@ -38,9 +38,13 @@ public class PaymentServiceImpl implements PaymentService {
     /** {@inheritDoc} */
     @Override
     @Transactional(readOnly = true)
-    public PaymentResponseDto findById(UUID id) {
-        return financeMapper.toPaymentResponseDto(paymentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Paiement", id)));
+    public PaymentResponseDto findById(UUID id, UUID branchId) {
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Paiement", id));
+        if (!payment.getBranchId().equals(branchId)) {
+            throw new ResourceNotFoundException("Paiement", id);
+        }
+        return financeMapper.toPaymentResponseDto(payment);
     }
 
     /**

@@ -43,6 +43,9 @@ public class MobileMoneyServiceImpl implements MobileMoneyService {
     @Override
     @Transactional
     public MobileMoneyStatusResponseDto initiate(MobileMoneyInitiateRequestDto dto, UUID branchId) {
+        log.info("Initiation paiement Mobile Money — invoice={}, montant={}, provider={}",
+                dto.getInvoiceId(), dto.getAmount(), dto.getProvider());
+
         // AC3 — anti-doublon SUCCESS
         paymentRepository.findByInvoiceId(dto.getInvoiceId()).ifPresent(existing -> {
             if ("SUCCESS".equals(existing.getPaymentStatus())) {
@@ -58,8 +61,8 @@ public class MobileMoneyServiceImpl implements MobileMoneyService {
         String orderCode = invoice.getTestOrder() != null ? invoice.getTestOrder().getCode() : "N/A";
         String description = "CAAP : " + orderCode + ". Frais : " + dto.getFee();
 
-        // R7 — Préfixer "229" uniquement lors de l'envoi à Sckaler (pas en base)
-        SckalerRequest body = new SckalerRequest("229" + dto.getPhone(), dto.getAmount(), description);
+        String normalizedPhone = dto.getPhone().startsWith("229") ? dto.getPhone() : "229" + dto.getPhone();
+        SckalerRequest body = new SckalerRequest(normalizedPhone, dto.getAmount(), description);
         String url = "MOBILEMONEY-MTN".equals(dto.getProvider()) ? SCKALER_MTN_URL : SCKALER_MOOV_URL;
 
         SckalerCollectionResponse sckalerResponse;
@@ -81,7 +84,7 @@ public class MobileMoneyServiceImpl implements MobileMoneyService {
         payment.setBranchId(branchId);
         payment.setInvoice(invoice);
         payment.setPaymentName(dto.getProvider());
-        payment.setPaymentNumber(dto.getPhone());
+        payment.setPaymentNumber(normalizedPhone);
         payment.setPaymentStatus("INITIATED");
         payment.setPaymentAmount(dto.getAmount());
         payment.setPaymentId(sckalerResponse.getTransactionId());
@@ -89,6 +92,7 @@ public class MobileMoneyServiceImpl implements MobileMoneyService {
         payment.setPaymentDate(LocalDate.now());
         payment.setAmount(java.math.BigDecimal.ZERO);
         paymentRepository.save(payment);
+        log.info("Paiement Mobile Money initié — paymentId={}, statut=INITIATED", payment.getPaymentId());
 
         return new MobileMoneyStatusResponseDto("INITIATED");
     }

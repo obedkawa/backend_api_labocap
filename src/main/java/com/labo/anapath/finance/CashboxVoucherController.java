@@ -42,8 +42,9 @@ public class CashboxVoucherController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('view-cashbox-tickets')")
     public ResponseEntity<ApiResponse<CashboxVoucherResponseDto>> findById(
-            @PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(voucherService.findById(id)));
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(voucherService.findById(id, principal.getBranchId())));
     }
 
     @PostMapping

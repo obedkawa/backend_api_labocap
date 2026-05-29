@@ -31,8 +31,9 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<ExpenseResponseDto> findAll(int page, int size, UUID branchId) {
-        return PageResponse.of(expenseRepository.findByBranchId(branchId,
+    public PageResponse<ExpenseResponseDto> findAll(int page, int size, UUID branchId, Integer paid, UUID expenseCategorieId) {
+        return PageResponse.of(expenseRepository.findWithFilters(
+                branchId, paid, expenseCategorieId,
                 PageRequest.of(page, size, Sort.by("createdAt").descending()))
                 .map(this::toDto));
     }
