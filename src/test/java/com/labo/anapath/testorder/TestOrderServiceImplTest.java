@@ -102,8 +102,10 @@ class TestOrderServiceImplTest {
                 null, null, null, null,
                 null, null, List.of(), BRANCH_ID, LocalDateTime.now(),
                 // reportId, reportStatus, reportIsDelivered, invoiceId, archive,
-                // testAffiliate, option, assignedUserName.
-                null, null, false, null, null, null, null, null);
+                // testAffiliate, option, les trois champs de facturation à un
+                // tiers, puis assignedUserName.
+                null, null, false, null, null, null, null,
+                null, null, null, null);
     }
 
     @Test

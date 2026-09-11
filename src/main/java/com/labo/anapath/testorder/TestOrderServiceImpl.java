@@ -234,6 +234,7 @@ public class TestOrderServiceImpl implements TestOrderService {
         order.setReferenceHopital(dto.getReferenceHopital());
         order.setIsUrgent(dto.getIsUrgent() != null ? dto.getIsUrgent() : false);
         order.setOption(dto.getOption());
+        poserQuiEstFacture(order, dto);
         order.setTestAffiliate(dto.getTestAffiliate());
         order.setSubtotal(dto.getSubtotal());
         order.setDiscount(dto.getDiscount());
@@ -326,6 +327,7 @@ public class TestOrderServiceImpl implements TestOrderService {
         order.setReferenceHopital(dto.getReferenceHopital());
         if (dto.getIsUrgent() != null) order.setIsUrgent(dto.getIsUrgent());
         if (dto.getOption() != null) order.setOption(dto.getOption());
+        poserQuiEstFacture(order, dto);
         if (dto.getTestAffiliate() != null) order.setTestAffiliate(dto.getTestAffiliate());
         // « Affecter à » (Laravel : attribuate_doctor_id) = docteur signataire.
         // On aligne attribuateDoctorId ET assignedToUserId sur le même utilisateur
@@ -526,6 +528,29 @@ public class TestOrderServiceImpl implements TestOrderService {
         return noms;
     }
 
+    /**
+     * Qui paiera cet examen : le patient, ou l'établissement nommé.
+     *
+     * <p>Les trois champs vont ensemble. Un nom vide efface les deux autres :
+     * revenir au patient doit être un geste, pas un oubli — sans cela, effacer
+     * le seul nom laisserait une adresse et un IFU orphelins sur la facture
+     * suivante.</p>
+     */
+    private void poserQuiEstFacture(TestOrder order, TestOrderRequestDto dto) {
+        String nom = dto.getFactureANom();
+        if (nom == null || nom.isBlank()) {
+            order.setFactureANom(null);
+            order.setFactureAAdresse(null);
+            order.setFactureAIfu(null);
+            return;
+        }
+        order.setFactureANom(nom.trim());
+        order.setFactureAAdresse(dto.getFactureAAdresse() == null
+                ? null : dto.getFactureAAdresse().trim());
+        order.setFactureAIfu(dto.getFactureAIfu() == null || dto.getFactureAIfu().isBlank()
+                ? null : dto.getFactureAIfu().trim());
+    }
+
     private TestOrderResponseDto enrichDto(TestOrderResponseDto dto, Report report, Invoice invoice,
                                           String assignedUserName) {
         return new TestOrderResponseDto(
@@ -544,6 +569,7 @@ public class TestOrderServiceImpl implements TestOrderService {
                 dto.archive(),
                 dto.testAffiliate(),
                 dto.option(),
+                dto.factureANom(), dto.factureAAdresse(), dto.factureAIfu(),
                 assignedUserName
         );
     }
@@ -568,9 +594,7 @@ public class TestOrderServiceImpl implements TestOrderService {
             invoice.setTestOrder(order);
             invoice.setPatient(order.getPatient());
             invoice.setContrat(order.getContrat());
-            invoice.setClientName(
-                    NomComplet.de(order.getPatient().getLastname(), order.getPatient().getFirstname()));
-            invoice.setClientAddress(order.getPatient().getAdresse());
+            poserLIdentiteDeFacturation(invoice, order);
             invoice.setSubtotal(order.getSubtotal());
             invoice.setDiscount(order.getDiscount());
             invoice.setTotal(order.getTotal() != null
@@ -580,9 +604,7 @@ public class TestOrderServiceImpl implements TestOrderService {
         } else {
             // Laravel réécrit aussi l'identité du patient sur la facture existante.
             invoice.setPatient(order.getPatient());
-            invoice.setClientName(
-                    NomComplet.de(order.getPatient().getLastname(), order.getPatient().getFirstname()));
-            invoice.setClientAddress(order.getPatient().getAdresse());
+            poserLIdentiteDeFacturation(invoice, order);
             invoice.setSubtotal(order.getSubtotal());
             invoice.setDiscount(order.getDiscount());
             invoice.setTotal(order.getTotal() != null
@@ -590,6 +612,38 @@ public class TestOrderServiceImpl implements TestOrderService {
             invoiceRepository.save(invoice);
         }
         addInvoiceDetails(invoice, order.getDetails());
+    }
+
+    /**
+     * Qui la facture nomme, et à quelle adresse.
+     *
+     * <p>L'établissement désigné sur la demande s'il y en a un, le patient
+     * sinon. Le laboratoire soigne quelqu'un et facture parfois quelqu'un
+     * d'autre — une clinique qui adresse son patient et règle l'examen — et
+     * ces deux identités n'ont aucune raison de coïncider.</p>
+     *
+     * <p>Une identité saisie à la main n'est jamais réécrite. Cette méthode est
+     * appelée à chaque validation du bon, et sans cette garde une adresse de
+     * facturation choisie au moment de déclarer disparaîtrait au geste
+     * suivant, en silence.</p>
+     */
+    private void poserLIdentiteDeFacturation(Invoice invoice, TestOrder order) {
+        if (invoice.isFacturationFigee()) {
+            return;
+        }
+        if (order.estFactureAUnTiers()) {
+            invoice.setClientName(order.getFactureANom());
+            invoice.setClientAddress(order.getFactureAAdresse());
+            invoice.setClientIfu(order.getFactureAIfu());
+            return;
+        }
+        invoice.setClientName(NomComplet.de(
+                order.getPatient().getLastname(), order.getPatient().getFirstname()));
+        invoice.setClientAddress(order.getPatient().getAdresse());
+        // Un patient n'a pas d'IFU : le laisser d'une facturation précédente
+        // ferait déclarer cette vente au nom d'un établissement qu'elle ne
+        // concerne plus.
+        invoice.setClientIfu(null);
     }
 
     /**
@@ -621,9 +675,12 @@ public class TestOrderServiceImpl implements TestOrderService {
         Client client = order.getContrat().getClientId() != null
                 ? clientRepository.findById(order.getContrat().getClientId()).orElse(null)
                 : null;
-        if (client != null) {
+        if (client != null && !invoice.isFacturationFigee()) {
             invoice.setClientName(client.getName());
             invoice.setClientAddress(client.getAdress());
+            // Le client d'un contrat porte un IFU en base ; il n'arrivait
+            // jamais jusqu'à la déclaration.
+            invoice.setClientIfu(client.getIfu());
         }
         double newSubtotal = (invoice.getSubtotal() != null ? invoice.getSubtotal() : 0.0)
                 + (order.getSubtotal() != null ? order.getSubtotal() : 0.0);
